@@ -1,0 +1,35 @@
+DESCRIPTION: A bold take on why the industry is getting this wrong.
+THEME: theme-one
+TAGS: alpha, innovation, strategy
+
+--- SITE DRAFT ---
+## The news
+
+Acme Corp announced a major partnership with Beta Industries to integrate their platforms. The deal, valued at $50M, signals a shift in how the industry thinks about consolidation.
+
+## My take
+
+This is exactly the kind of move I've been telling my clients to watch for. When two mid-market players combine forces instead of competing, it usually means the category is maturing faster than either company can grow alone.
+
+I've seen three clients this year face the same decision: build or partner. The ones who partnered moved faster and spent less. The ones who tried to build everything in-house are still six months behind.
+
+The real question isn't whether this deal makes sense for Acme and Beta — it obviously does. The question is what it means for the dozen other companies in their space who are still trying to go it alone.
+
+If I'm advising a company in this category right now, I'm telling them to pick up the phone. Not to Acme or Beta — to the other companies who just realized they need a response.
+
+## The so-what
+
+If you're a marketing leader at a mid-market company in this space, your positioning just changed whether you like it or not. Don't wait for the next earnings call to figure out your narrative. The companies that define the conversation in the next 30 days will own it for the next 12 months.
+
+--- LINKEDIN DRAFT ---
+Two mid-market players just merged instead of competing, and everyone's calling it "strategic."
+
+Here's what they're not saying: this is a survival move dressed up as a growth play.
+
+I've watched three clients face this exact fork in the road this year. The ones who partnered moved faster. The ones who tried to build everything in-house? Still catching up.
+
+The real story isn't the deal itself — it's the dozen companies who just realized they need a response strategy by next quarter.
+
+If you're leading marketing at a mid-market company right now, your positioning just changed. The companies that define the conversation in the next 30 days will own it for the next 12 months.
+
+[LINK]

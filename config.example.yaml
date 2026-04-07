@@ -1,0 +1,154 @@
+# ─── POV Pipeline Configuration ─────────────────────────────────────────────
+#
+# This is a complete working example using a fictional persona.
+# Copy this file to config.yaml and replace with your own values.
+#
+# The pipeline reads this file at startup. It contains everything that makes
+# the pipeline yours: your identity, your industry, your editorial themes,
+# and your publishing setup.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Identity ───────────────────────────────────────────────────────────────
+# Who you are and what you write about.
+
+author:
+  name: "Jordan Rivera"
+  role: "fractional product marketing consultant"
+  specialization: "climate tech and clean energy"
+
+site:
+  domain: "jordanrivera.dev"
+  content_path: "src/content/pov"       # Path within your site repo where content files go
+  url_pattern: "/pov/{slug}/"           # How URLs are formed on your site
+
+# ─── Discovery ──────────────────────────────────────────────────────────────
+# Where the pipeline looks for articles to react to.
+
+discovery:
+  max_article_age_hours: 72             # Ignore articles older than this
+  max_candidates: 5                     # Max articles to process per run
+
+  # RSS feeds to scan. Set needs_keyword_filter: true for broad feeds
+  # (like PR wires) that need filtering by your industry keywords.
+  rss_feeds:
+    - url: "https://www.canarymedia.com/feed"
+      needs_keyword_filter: false
+    - url: "https://techcrunch.com/category/climate/feed"
+      needs_keyword_filter: false
+    - url: "https://www.globenewswire.com/RssFeed/industry/Energy"
+      needs_keyword_filter: true
+
+  # Brave Web Search queries (requires BRAVE_SEARCH_API_KEY in .env)
+  brave_queries:
+    - '"carbon capture" OR "direct air capture" startup funding 2026'
+    - '"grid storage" OR "battery technology" clean energy announcement'
+
+  # Keywords for filtering broad feeds (like PR wires)
+  industry_keywords:
+    - "clean energy"
+    - "carbon capture"
+    - "grid storage"
+    - "solar"
+    - "wind power"
+    - "EV charging"
+    - "climate tech"
+    - "green hydrogen"
+
+  # Domains to always skip
+  blocked_domains:
+    - arxiv.org
+    - ssrn.com
+    - linkedin.com
+    - facebook.com
+    - twitter.com
+    - x.com
+    - youtube.com
+
+# ─── Themes ─────────────────────────────────────────────────────────────────
+# Your editorial themes. Each article gets tagged with one theme.
+# Define as many or few as you want. Each needs a slug, label, and keywords.
+
+themes:
+  - slug: "grid-modernization"
+    label: "Grid Modernization"
+    description: "How utilities and startups are rethinking grid infrastructure"
+    keywords:
+      - "grid modernization"
+      - "smart grid"
+      - "grid storage"
+      - "virtual power plant"
+      - "distributed energy"
+
+  - slug: "carbon-markets"
+    label: "Carbon Markets"
+    description: "Carbon credits, offsets, and the evolving compliance landscape"
+    keywords:
+      - "carbon credit"
+      - "carbon offset"
+      - "carbon market"
+      - "emissions trading"
+
+  - slug: "electrification"
+    label: "Electrification"
+    description: "The shift from fossil fuels to electric across transport, buildings, and industry"
+    keywords:
+      - "electrification"
+      - "EV charging"
+      - "heat pump"
+      - "electric vehicle"
+
+  - slug: "climate-finance"
+    label: "Climate Finance"
+    description: "How money flows into climate solutions -- VC, project finance, policy incentives"
+    keywords:
+      - "climate fund"
+      - "green bond"
+      - "IRA incentive"
+      - "climate venture"
+
+# ─── Drafting ───────────────────────────────────────────────────────────────
+# How the AI drafts your content.
+
+drafting:
+  model: "claude-sonnet-4-6"            # Claude model to use
+  max_tokens: 2000                      # Max tokens per draft
+  output_format: "mdx"                  # "mdx" or "markdown"
+
+  # Content structure: the h2 sections that make up each take.
+  # Customize headings and instructions to match your editorial style.
+  sections:
+    - heading: "The news"
+      instruction: "What happened. 2-3 sentences. No editorializing."
+    - heading: "My take"
+      instruction: "Your interpretation or challenge. 150-250 words."
+    - heading: "The so-what"
+      instruction: "What readers should do differently. 2-4 sentences."
+
+  # Social draft settings
+  social_draft:
+    enabled: true
+    platform: "linkedin"
+    word_range: [150, 250]
+
+# ─── Publishing ─────────────────────────────────────────────────────────────
+# Where content PRs get created.
+
+publishing:
+  target_repo: "jordanrivera/jordanrivera-dev"   # GitHub owner/repo
+  base_branch: "main"
+  branch_prefix: "pov"                           # Branches: pov/2026-04-07-slug
+
+# ─── Buffer (experimental) ──────────────────────────────────────────────────
+# LinkedIn draft posting via Buffer API. Requires BUFFER_ACCESS_TOKEN in .env.
+# Currently experimental — the Buffer v1 API auth can be finicky.
+
+buffer:
+  enabled: false
+
+# ─── Pipeline ───────────────────────────────────────────────────────────────
+# General pipeline settings.
+
+pipeline:
+  timezone: "America/New_York"
+  rate_limit_sleep: 2
+  log_file: "pipeline.log"

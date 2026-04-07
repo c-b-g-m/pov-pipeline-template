@@ -1,0 +1,22 @@
+# User config (contains personal data)
+config.yaml
+voice-guidelines.md
+
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Pipeline state
+state/processed_urls.json
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

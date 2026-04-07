@@ -1,0 +1,66 @@
+author:
+  name: "Test Author"
+  role: "test role"
+  specialization: "test industry"
+
+site:
+  domain: "testsite.dev"
+  content_path: "src/content/pov"
+  url_pattern: "/pov/{slug}/"
+
+discovery:
+  max_article_age_hours: 72
+  max_candidates: 3
+  rss_feeds:
+    - url: "https://example.com/feed"
+      needs_keyword_filter: false
+  brave_queries: []
+  industry_keywords:
+    - "test keyword"
+    - "another keyword"
+  blocked_domains:
+    - linkedin.com
+    - facebook.com
+
+themes:
+  - slug: "theme-one"
+    label: "Theme One"
+    description: "First test theme"
+    keywords:
+      - "alpha"
+      - "beta"
+  - slug: "theme-two"
+    label: "Theme Two"
+    description: "Second test theme"
+    keywords:
+      - "gamma"
+      - "delta"
+
+drafting:
+  model: "claude-sonnet-4-6"
+  max_tokens: 2000
+  output_format: "mdx"
+  sections:
+    - heading: "The news"
+      instruction: "What happened."
+    - heading: "My take"
+      instruction: "Your opinion."
+    - heading: "The so-what"
+      instruction: "What to do about it."
+  social_draft:
+    enabled: true
+    platform: "linkedin"
+    word_range: [150, 250]
+
+publishing:
+  target_repo: "testuser/testsite"
+  base_branch: "main"
+  branch_prefix: "pov"
+
+buffer:
+  enabled: false
+
+pipeline:
+  timezone: "UTC"
+  rate_limit_sleep: 0
+  log_file: "test-pipeline.log"

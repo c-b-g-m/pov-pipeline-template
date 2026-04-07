@@ -1,0 +1,83 @@
+name: POV Pipeline
+
+on:
+  schedule:
+    # Runs daily at midnight UTC — adjust to your preferred time
+    # Cron reference: https://crontab.guru/
+    - cron: '0 0 * * *'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - dry-run
+          - discover-only
+      max_candidates:
+        description: 'Max articles to process (overrides config.yaml)'
+        required: false
+        default: '3'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pipeline repo
+        uses: actions/checkout@v4
+
+      - name: Checkout site repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.TARGET_REPO }}
+          path: site-repo
+          token: ${{ secrets.SITE_REPO_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SITE_REPO_PATH: ${{ github.workspace }}/site-repo
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
+          MAX_CANDIDATES: ${{ inputs.max_candidates || '3' }}
+          GH_TOKEN: ${{ secrets.SITE_REPO_TOKEN }}
+        run: |
+          FLAGS=""
+          if [ "${{ inputs.mode }}" = "dry-run" ]; then FLAGS="--dry-run"; fi
+          if [ "${{ inputs.mode }}" = "discover-only" ]; then FLAGS="--discover-only"; fi
+          python -m pipeline.main $FLAGS
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: pipeline.log
+          retention-days: 7
+
+      - name: Commit updated state
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/processed_urls.json
+          git diff --cached --quiet || git commit -m "Update processed URLs state"
+          git push

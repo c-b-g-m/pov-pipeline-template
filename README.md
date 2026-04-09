@@ -3,7 +3,7 @@
 An automated content pipeline that discovers industry news, drafts opinionated takes using Claude, and creates GitHub PRs on your website repo for editorial review.
 
 **You provide:** your identity, your industry, your RSS feeds, your editorial voice.
-**The pipeline handles:** scanning for articles, drafting takes, opening PRs, and optionally queuing social posts.
+**The pipeline handles:** scanning for articles, drafting takes, and opening PRs for review.
 
 ```
 RSS Feeds / Brave Search
@@ -14,7 +14,9 @@ RSS Feeds / Brave Search
         |
     Publishing (GitHub PR on your site repo)
         |
-    Buffer (optional LinkedIn draft)
+    You review & merge the PR
+        |
+    Buffer (post-merge action sends edited social draft)
 ```
 
 ## Quick Start
@@ -76,7 +78,6 @@ All pipeline behavior is driven by this file. See `config.example.yaml` for a co
 | `themes` | Your editorial themes with slugs, labels, and discovery keywords |
 | `drafting` | Claude model, output format (mdx/markdown), content section structure |
 | `publishing` | Target GitHub repo, base branch, branch prefix |
-| `buffer` | Enable/disable Buffer integration (experimental) |
 | `pipeline` | Timezone, rate limits, log file |
 
 ### `voice-guidelines.md`
@@ -96,7 +97,6 @@ A prose document that defines your editorial voice. Claude reads this before dra
 | `SITE_REPO_PATH` | Yes (local runs) | Absolute path to your site's git repo |
 | `BRAVE_SEARCH_API_KEY` | No | Enables Brave Web Search for broader discovery |
 | `FIRECRAWL_API_KEY` | No | Enables full article scraping for better draft quality |
-| `BUFFER_ACCESS_TOKEN` | No | Enables Buffer social draft posting (experimental) |
 
 ## GitHub Actions (Automated Scheduling)
 
@@ -108,7 +108,7 @@ The included workflow (`.github/workflows/pipeline.yml`) runs the pipeline daily
    - `ANTHROPIC_API_KEY` — your Claude API key
    - `TARGET_REPO` — your site repo (e.g., `username/my-website`)
    - `SITE_REPO_TOKEN` — a GitHub PAT with `repo` scope for your site repo
-   - (Optional) `BRAVE_SEARCH_API_KEY`, `FIRECRAWL_API_KEY`, `BUFFER_ACCESS_TOKEN`
+   - (Optional) `BRAVE_SEARCH_API_KEY`, `FIRECRAWL_API_KEY`
 
 2. **Important:** Your `config.yaml` must be committed to the repo for GitHub Actions to read it. Since it's gitignored by default, you can either:
    - Remove `config.yaml` from `.gitignore` (if your config doesn't contain secrets)
@@ -131,6 +131,37 @@ The pipeline supports two output formats:
 
 Both formats produce files with YAML frontmatter containing: title, description, sourceUrl, sourceTitle, publishDate, theme, tags, featured, and linkedInDraft.
 
+## Buffer Integration (Post-Merge)
+
+Social posting happens **after you merge a PR**, not during the pipeline run. This ensures only reviewed and edited content reaches LinkedIn (or other platforms).
+
+### Why post-merge?
+
+The pipeline drafts content via Claude, but you'll often edit it before merging. If the pipeline posted to Buffer immediately, the unedited AI draft would go to LinkedIn. The post-merge approach reads the `linkedInDraft` field from the merged file's frontmatter — the version you actually approved.
+
+### Setup
+
+1. Copy `.github/workflows/buffer-on-merge.example.yml` from this repo into your **site repo** at `.github/workflows/buffer-on-merge.yml`
+2. Update the `paths` trigger to match your site's content directory
+3. In your **site repo's** Settings > Secrets, add:
+   - `BUFFER_ACCESS_TOKEN` — your Buffer API token
+   - `BUFFER_ORGANIZATION_ID` — your Buffer organization ID (find it in Buffer's URL or API)
+4. That's it. When you merge a POV PR, the action reads the social draft from frontmatter and sends it to Buffer as a draft for your approval.
+
+### How it works
+
+```
+Pipeline creates PR → You review & edit → Merge to main
+                                                |
+                              buffer-on-merge.yml triggers
+                                                |
+                              Reads linkedInDraft from frontmatter
+                                                |
+                              Sends to Buffer as draft (not auto-published)
+                                                |
+                              You approve in Buffer UI → Published
+```
+
 ## Architecture
 
 ```
@@ -140,7 +171,7 @@ pipeline/
   drafter.py         — Drafts takes via Claude API using your voice guidelines
   formatters.py      — Formats output as MDX or Markdown
   publisher.py       — Creates branches and PRs on your site repo
-  buffer_client.py   — Sends social drafts to Buffer (experimental)
+  buffer_client.py   — Buffer GraphQL client (used by post-merge action)
   main.py            — Orchestrator: runs the pipeline end-to-end
 ```
 

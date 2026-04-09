@@ -3,11 +3,12 @@
 POV Pipeline — Automated opinion content from industry news
 
 Discovers articles via RSS/search, drafts opinion takes via Claude API,
-creates GitHub PRs for review, and optionally queues social posts in Buffer.
+and creates GitHub PRs for review. Social posting (e.g. LinkedIn via Buffer)
+happens post-merge via a separate GitHub Action on your site repo.
 
 Usage:
   python3 -m pipeline.main                 # Full run
-  python3 -m pipeline.main --dry-run       # Discovery + draft, no PR/push/Buffer
+  python3 -m pipeline.main --dry-run       # Discovery + draft, no PR/push
   python3 -m pipeline.main --discover-only # Discovery only, print candidates
 
 Required environment variables (in .env or .env.local):
@@ -17,7 +18,6 @@ Required environment variables (in .env or .env.local):
 Optional:
   BRAVE_SEARCH_API_KEY  Enables Brave Web Search for broader discovery
   FIRECRAWL_API_KEY     Enables full article scraping for better drafts
-  BUFFER_ACCESS_TOKEN   Enables Buffer social draft posting
   MAX_CANDIDATES        Override config max_candidates (default from config.yaml)
   RATE_LIMIT_SLEEP      Override config rate_limit_sleep (default from config.yaml)
 """
@@ -40,7 +40,6 @@ from .config_loader import load_config
 from .discovery import discover, mark_processed
 from .drafter import draft_take
 from .publisher import create_pr
-from .buffer_client import send_to_buffer
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,7 @@ def _setup_logging(config: dict):
 def main():
     parser = argparse.ArgumentParser(description="POV Pipeline")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Discovery + draft, skip PR creation and Buffer")
+                        help="Discovery + draft, skip PR creation")
     parser.add_argument("--discover-only", action="store_true",
                         help="Run discovery only, print candidates")
     parser.add_argument("--config", default=None,
@@ -80,7 +79,6 @@ def main():
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     site_repo_path = os.environ.get("SITE_REPO_PATH", "")
     brave_key = os.environ.get("BRAVE_SEARCH_API_KEY", "")
-    buffer_token = os.environ.get("BUFFER_ACCESS_TOKEN", "")
     firecrawl_key = os.environ.get("FIRECRAWL_API_KEY", "")
     rate_limit = float(os.environ.get(
         "RATE_LIMIT_SLEEP",
@@ -157,28 +155,12 @@ def main():
     # ─── Step 3: Create PRs ──────────────────────────────────────────────
     log.info("Step 3: Creating GitHub PRs")
     pr_urls = []
-    site_domain = config.get("site", {}).get("domain", "")
-    url_pattern = config.get("site", {}).get("url_pattern", "/pov/{slug}/")
 
     for draft in drafts:
         pr_url = create_pr(draft, config, site_repo_path)
         if pr_url:
             pr_urls.append(pr_url)
             log.info("  PR created: %s", pr_url)
-
-            # ─── Step 4: Buffer ──────────────────────────────────────
-            buffer_cfg = config.get("buffer", {})
-            if buffer_token and buffer_cfg.get("enabled", False):
-                site_url = f"https://{site_domain}{url_pattern.format(slug=draft['slug'])}"
-                sent = send_to_buffer(
-                    access_token=buffer_token,
-                    social_draft=draft.get("linkedin_draft", ""),
-                    site_url=site_url,
-                )
-                if sent:
-                    log.info("  Buffer draft queued")
-                else:
-                    log.warning("  Buffer draft failed — post manually")
         else:
             log.error("  Failed to create PR for: %s", draft["slug"])
 

@@ -138,12 +138,16 @@ publishing:
   base_branch: "main"
   branch_prefix: "pov"                           # Branches: pov/2026-04-07-slug
 
-# ─── Buffer (experimental) ──────────────────────────────────────────────────
-# LinkedIn draft posting via Buffer API. Requires BUFFER_ACCESS_TOKEN in .env.
-# Currently experimental — the Buffer v1 API auth can be finicky.
-
-buffer:
-  enabled: false
+# ─── Buffer (post-merge) ────────────────────────────────────────────────────
+# Social posting via Buffer now happens AFTER you merge a PR, not during the
+# pipeline run. This ensures only reviewed/edited content reaches LinkedIn.
+#
+# Setup: copy .github/workflows/buffer-on-merge.example.yml into your SITE
+# repo at .github/workflows/buffer-on-merge.yml and add BUFFER_ACCESS_TOKEN
+# and BUFFER_ORGANIZATION_ID as secrets in the site repo.
+#
+# The pipeline stores the social draft in each file's frontmatter
+# (linkedInDraft field). The post-merge action reads it from the merged file.
 
 # ─── Pipeline ───────────────────────────────────────────────────────────────
 # General pipeline settings.

@@ -1,0 +1,185 @@
+# ─── Buffer on Merge ────────────────────────────────────────────────────────
+#
+# Copy this workflow into YOUR SITE REPO at .github/workflows/buffer-on-merge.yml
+# It runs when a POV content PR is merged and sends the edited social draft
+# to Buffer — so only reviewed content reaches LinkedIn (or other platforms).
+#
+# Why post-merge instead of in the pipeline?
+# The pipeline drafts content via Claude, but you'll often edit it before merging.
+# Posting from the pipeline would send the unedited AI draft. This workflow reads
+# the linkedInDraft field from the merged file's frontmatter — the version you
+# actually approved.
+#
+# Required secrets (in your SITE repo's Settings > Secrets):
+#   BUFFER_ACCESS_TOKEN      — Buffer API token (get one at https://buffer.com/developers)
+#   BUFFER_ORGANIZATION_ID   — Your Buffer organization ID
+#
+# Optional:
+#   BUFFER_SERVICE            — Social platform (default: "linkedin")
+# ────────────────────────────────────────────────────────────────────────────
+
+name: Buffer on Merge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Adjust this path to match your site's content directory
+      - 'src/content/pov/**'
+
+jobs:
+  post-to-buffer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2    # Need HEAD~1 to diff
+
+      - name: Find merged POV files
+        id: find-files
+        run: |
+          # Adjust the path pattern to match your content directory
+          FILES=$(git diff --name-only --diff-filter=A HEAD~1..HEAD -- 'src/content/pov/*.mdx' 'src/content/pov/*.md')
+          if [ -z "$FILES" ]; then
+            echo "No new POV files in this push"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found files: $FILES"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            # Store as multiline output
+            {
+              echo 'files<<EOF'
+              echo "$FILES"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.find-files.outputs.found == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        if: steps.find-files.outputs.found == 'true'
+        run: pip install pyyaml
+
+      - name: Send to Buffer
+        if: steps.find-files.outputs.found == 'true'
+        env:
+          BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ secrets.BUFFER_ORGANIZATION_ID }}
+          BUFFER_SERVICE: ${{ vars.BUFFER_SERVICE || 'linkedin' }}
+        run: |
+          python3 << 'SCRIPT'
+          import json
+          import os
+          import re
+          import yaml
+          from urllib.request import Request, urlopen
+
+          BUFFER_API = "https://api.buffer.com"
+          TOKEN = os.environ["BUFFER_ACCESS_TOKEN"]
+          ORG_ID = os.environ["BUFFER_ORGANIZATION_ID"]
+          SERVICE = os.environ.get("BUFFER_SERVICE", "linkedin")
+
+          def graphql(query, variables=None):
+              payload = {"query": query}
+              if variables:
+                  payload["variables"] = variables
+              body = json.dumps(payload).encode()
+              req = Request(
+                  BUFFER_API,
+                  data=body,
+                  headers={
+                      "Content-Type": "application/json",
+                      "Authorization": f"Bearer {TOKEN}",
+                      "User-Agent": "pov-pipeline-buffer-on-merge/1.0",
+                  },
+                  method="POST",
+              )
+              with urlopen(req, timeout=15) as resp:
+                  return json.loads(resp.read().decode())
+
+          # Get channel ID
+          result = graphql("""
+              query GetChannels($input: ChannelsInput!) {
+                  channels(input: $input) { id name service isDisconnected }
+              }
+          """, {"input": {"organizationId": ORG_ID}})
+
+          channels = result.get("data", {}).get("channels", [])
+          channel_id = None
+          for ch in channels:
+              if ch.get("service", "").lower() == SERVICE and not ch.get("isDisconnected"):
+                  channel_id = ch["id"]
+                  break
+
+          if not channel_id:
+              print(f"No connected {SERVICE} channel found — skipping")
+              exit(0)
+
+          print(f"Using {SERVICE} channel: {channel_id}")
+
+          # Process each merged file
+          files_str = os.environ.get("FILES", "")
+          if not files_str:
+              # Read from step output via file list
+              files_str = """${{ steps.find-files.outputs.files }}"""
+
+          for filepath in files_str.strip().splitlines():
+              filepath = filepath.strip()
+              if not filepath:
+                  continue
+
+              print(f"Processing: {filepath}")
+
+              with open(filepath) as f:
+                  content = f.read()
+
+              # Parse YAML frontmatter
+              match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+              if not match:
+                  print(f"  No frontmatter found — skipping")
+                  continue
+
+              frontmatter = yaml.safe_load(match.group(1))
+              draft_text = frontmatter.get("linkedInDraft", "")
+              if not draft_text:
+                  print(f"  No linkedInDraft in frontmatter — skipping")
+                  continue
+
+              # Unescape newlines from frontmatter string
+              draft_text = draft_text.replace("\\n", "\n")
+
+              print(f"  Sending draft to Buffer ({len(draft_text)} chars)...")
+
+              result = graphql("""
+                  mutation CreatePost($input: CreatePostInput!) {
+                      createPost(input: $input) {
+                          ... on PostActionSuccess {
+                              post { id text }
+                          }
+                          ... on MutationError { message }
+                      }
+                  }
+              """, {
+                  "input": {
+                      "text": draft_text,
+                      "channelId": channel_id,
+                      "schedulingType": "automatic",
+                      "mode": "addToQueue",
+                      "saveToDraft": True,
+                  }
+              })
+
+              data = result.get("data", {}).get("createPost", {})
+              if "post" in data:
+                  print(f"  Buffer draft created (ID: {data['post']['id']})")
+              else:
+                  error = data.get("message", result.get("errors", "Unknown error"))
+                  print(f"  Buffer error: {error}")
+
+          SCRIPT

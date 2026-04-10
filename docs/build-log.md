@@ -31,6 +31,13 @@
 **False positives from audit (verified and rejected):**
 - Agent flagged `README.md:46` (`cp env.example .env`) as referencing a nonexistent file. Verified: the file is literally named `env.example` (no dot) and the README matches. Not a bug. Renaming to `.env.example` for convention is cosmetic only.
 
+**Commits & push:**
+- Split into two commits via backup-revert-reedit (five files had interleaved feature + trap-fix changes):
+  - `cb26eba` — "Add first_principles and audience config blocks" (8 files, +291)
+  - `98d7a26` — "Reduce silent failures and onboarding traps" (8 files, +98, -12)
+- First push rejected: `origin/main` had commit `e7f8013` ("Remove URL reachability gate that silently dropped candidates (#1)") that wasn't local. Verified it was the user's own work from a prior Claude Code session the night before (2026-04-09 22:33). Touches only `pipeline/discovery.py` — no file overlap, clean rebase. Rebased and pushed to `c-b-g-m/pov-pipeline-template` main.
+- Final state: 27/27 tests passing, working tree clean, branch even with origin.
+
 ## 2026-04-09: Buffer post-merge sync
 
 **What was built:**

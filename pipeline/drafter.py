@@ -24,12 +24,15 @@ VOICE_GUIDELINES_PATH = os.path.join(
 
 def _load_voice_guidelines() -> str:
     if not os.path.exists(VOICE_GUIDELINES_PATH):
-        log.warning(
-            "voice-guidelines.md not found at %s. "
+        log.critical(
+            "voice-guidelines.md not found at %s\n"
+            "This file defines your editorial voice and is required for drafting. "
+            "Without it, Claude produces generic output that won't match your POV.\n"
             "Copy voice-guidelines.example.md to voice-guidelines.md and customize it.",
             VOICE_GUIDELINES_PATH,
         )
-        return ""
+        import sys
+        sys.exit(1)
     with open(VOICE_GUIDELINES_PATH, "r") as f:
         return f.read()
 
@@ -265,7 +268,13 @@ def _parse_draft_response(text: str, candidate: dict, config: dict, tz) -> Optio
 
     theme = theme_match.group(1).strip() if theme_match else candidate.get("theme", "")
     if theme not in valid_themes:
-        theme = valid_themes[0] if valid_themes else "general"
+        fallback = valid_themes[0] if valid_themes else "general"
+        log.warning(
+            "Claude returned theme '%s' which is not in config.themes. Falling back to '%s'. "
+            "Valid themes: %s",
+            theme, fallback, ", ".join(valid_themes) or "(none)"
+        )
+        theme = fallback
 
     tags_str = tags_match.group(1).strip() if tags_match else ""
     tags = [t.strip() for t in tags_str.split(",") if t.strip()]

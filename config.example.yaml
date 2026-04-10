@@ -18,7 +18,9 @@ author:
 
 site:
   domain: "jordanrivera.dev"
-  content_path: "src/content/pov"       # Path within your site repo where content files go
+  content_path: "src/content/pov"       # Path within your site repo where content files go.
+                                        # This directory MUST exist in the target site repo
+                                        # before you run the pipeline.
   url_pattern: "/pov/{slug}/"           # How URLs are formed on your site
 
 # ─── Audience ───────────────────────────────────────────────────────────────
@@ -78,7 +80,11 @@ discovery:
     - url: "https://www.globenewswire.com/RssFeed/industry/Energy"
       needs_keyword_filter: true
 
-  # Brave Web Search queries (requires BRAVE_SEARCH_API_KEY in .env)
+  # Brave Web Search queries.
+  # REQUIRES: BRAVE_SEARCH_API_KEY environment variable + an active Brave Search
+  # API subscription (paid tier for commercial use). Without the key, these
+  # queries silently return zero results — the pipeline will warn you at startup.
+  # Delete this section entirely if you don't have Brave set up.
   brave_queries:
     - '"carbon capture" OR "direct air capture" startup funding 2026'
     - '"grid storage" OR "battery technology" clean energy announcement'

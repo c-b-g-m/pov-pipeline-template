@@ -8,6 +8,17 @@ site:
   content_path: "src/content/pov"
   url_pattern: "/pov/{slug}/"
 
+audience:
+  description: "Test readers who care about test things"
+  knows_already: "Test basics"
+  cares_about: "Test outcomes"
+
+first_principles:
+  - belief: "Testing is non-negotiable."
+    post_url: "https://example.com/why-tests"
+    post_title: "Why tests matter"
+  - belief: "Simple is better than clever."
+
 discovery:
   max_article_age_hours: 72
   max_candidates: 3

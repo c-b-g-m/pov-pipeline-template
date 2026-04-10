@@ -21,6 +21,46 @@ site:
   content_path: "src/content/pov"       # Path within your site repo where content files go
   url_pattern: "/pov/{slug}/"           # How URLs are formed on your site
 
+# ─── Audience ───────────────────────────────────────────────────────────────
+# Who you're writing FOR. One audience per pipeline — the model calibrates
+# vocabulary, assumed knowledge, and framing against this single reader.
+#
+# Need to write for two different audiences? Run two copies of this repo,
+# each with its own config.yaml and voice-guidelines.md. Don't try to encode
+# multiple audiences here — the model will average them and the takes lose
+# their edge. See README for running multiple pipelines.
+#
+# All three fields are optional but strongly recommended. Leave the whole
+# block out if you want the model to default to a generic industry reader.
+
+audience:
+  description: "Climate tech operators, early-stage founders, and the investors who fund them"
+  knows_already: "Industry basics, common acronyms, the major players and dominant narratives"
+  cares_about: "What's actually working in the field, where capital is flowing, what to ignore"
+
+# ─── First Principles ──────────────────────────────────────────────────────
+# Your foundational beliefs — things you hold as settled, not open to debate
+# in your content. The model reads these as premises to reason FROM, not
+# just things to avoid contradicting.
+#
+# Each principle needs a `belief` string. Optionally attach a `post_url` +
+# `post_title` pointing to a post where you've explained the belief in depth.
+# The model will only link to these posts when a principle is the crux of
+# the argument — not every time it's referenced. Max one link per take.
+#
+# Leave the whole block out if you don't want to use this feature. These
+# are YOUR beliefs, not a debate club — the model will not hedge on them.
+
+first_principles:
+  - belief: "Carbon markets are broken until MRV is solved at scale."
+    post_url: "https://jordanrivera.dev/pov/carbon-markets-mrv/"
+    post_title: "The MRV problem nobody wants to talk about"
+  - belief: "Grid software is systematically undervalued relative to grid hardware."
+    post_url: "https://jordanrivera.dev/pov/grid-software-undervalued/"
+    post_title: "The unsexy thesis I keep coming back to"
+  - belief: "Electrification is inevitable — the debate is speed and value capture, not whether it happens."
+    # No post_url yet — still a working premise, just not written up.
+
 # ─── Discovery ──────────────────────────────────────────────────────────────
 # Where the pipeline looks for articles to react to.
 

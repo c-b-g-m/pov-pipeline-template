@@ -74,11 +74,25 @@ All pipeline behavior is driven by this file. See `config.example.yaml` for a co
 |---|---|
 | `author` | Your name, role, and specialization |
 | `site` | Your domain, content path in your site repo, URL pattern |
+| `audience` | *Optional.* Who you're writing FOR — description, what they already know, what they care about |
+| `first_principles` | *Optional.* Foundational beliefs the model reasons FROM, with optional links to explanatory posts |
 | `discovery` | RSS feeds, Brave search queries, industry keywords, blocked domains |
 | `themes` | Your editorial themes with slugs, labels, and discovery keywords |
 | `drafting` | Claude model, output format (mdx/markdown), content section structure |
 | `publishing` | Target GitHub repo, base branch, branch prefix |
 | `pipeline` | Timezone, rate limits, log file |
+
+### `audience` — who you're writing FOR
+
+Defines the single reader the model calibrates against: vocabulary, assumed knowledge, and framing. Three optional string fields: `description`, `knows_already`, `cares_about`. Leave the block out if you want a generic industry reader.
+
+**This pipeline supports one audience per instance.** See [Running multiple pipelines](#running-multiple-pipelines) below if you need to write for two different readers.
+
+### `first_principles` — foundational beliefs
+
+A list of beliefs you hold as settled. The model reasons *from* them, not just around them. Each entry needs a `belief` string. Optionally attach `post_url` + `post_title` pointing to a post where you've explained the belief in depth — the model will link to it only when the principle is the crux of an argument, never as a passing reference, and at most once per take.
+
+These are YOUR premises, not opinions up for debate. The model will not hedge on them.
 
 ### `voice-guidelines.md`
 
@@ -121,6 +135,25 @@ The included workflow (`.github/workflows/pipeline.yml`) runs the pipeline daily
 The workflow also supports manual dispatch from the GitHub Actions UI with options for:
 - **Mode:** full / dry-run / discover-only
 - **Max candidates:** override the config default
+
+## Running multiple pipelines
+
+Each instance of this pipeline manages **one author, one audience, one target site.** This is a deliberate design constraint — mixing multiple authors or audiences into a single config produces averaged, edgeless takes that read like nobody in particular wrote them.
+
+If you need to cover multiple audiences (e.g., a technical blog and an executive newsletter), or write under multiple identities (e.g., personal voice and client voice), run multiple copies of this repo:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/pov-pipeline-template.git pipeline-technical
+git clone https://github.com/YOUR_USERNAME/pov-pipeline-template.git pipeline-exec
+```
+
+Each copy gets its own:
+- `config.yaml` — separate author, audience, themes, discovery sources, publishing target
+- `voice-guidelines.md` — distinct editorial voice
+- `.env.local` — can share an `ANTHROPIC_API_KEY`, but `SITE_REPO_PATH` will usually differ
+- GitHub Actions schedule — stagger them if you want
+
+They can publish to the same target site repo if you give each a unique `branch_prefix` (`pov-technical/`, `pov-exec/`) and a distinct `content_path`, or they can publish to entirely different site repos. There is no shared state between instances.
 
 ## Output Format
 

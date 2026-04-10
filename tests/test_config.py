@@ -4,7 +4,19 @@ import os
 import pytest
 import yaml
 
+from pipeline.config_loader import _validate
+
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def _base_config():
+    """Minimum valid config dict — used as a base for validation tests."""
+    return {
+        "author": {"name": "A", "role": "r", "specialization": "s"},
+        "site": {"domain": "d", "content_path": "c"},
+        "discovery": {"rss_feeds": [{"url": "https://example.com/feed"}]},
+        "themes": [{"slug": "t", "keywords": ["k"]}],
+    }
 
 
 def _load_yaml(path):
@@ -51,3 +63,74 @@ def test_config_has_at_least_one_source():
     has_feeds = any(f.get("url") for f in feeds)
     has_queries = len(queries) > 0
     assert has_feeds or has_queries
+
+
+# ─── audience + first_principles validation ─────────────────────────────────
+
+
+def test_validate_passes_without_audience_or_principles():
+    """Both blocks are optional — config should validate without them."""
+    _validate(_base_config())  # should not raise/exit
+
+
+def test_validate_accepts_valid_audience():
+    config = _base_config()
+    config["audience"] = {
+        "description": "test readers",
+        "knows_already": "basics",
+        "cares_about": "outcomes",
+    }
+    _validate(config)
+
+
+def test_validate_rejects_non_dict_audience():
+    config = _base_config()
+    config["audience"] = "a string, not a dict"
+    with pytest.raises(SystemExit):
+        _validate(config)
+
+
+def test_validate_rejects_non_string_audience_field():
+    config = _base_config()
+    config["audience"] = {"description": 123}
+    with pytest.raises(SystemExit):
+        _validate(config)
+
+
+def test_validate_accepts_valid_first_principles():
+    config = _base_config()
+    config["first_principles"] = [
+        {"belief": "A is true."},
+        {"belief": "B is true.", "post_url": "https://example.com/b", "post_title": "Why B"},
+    ]
+    _validate(config)
+
+
+def test_validate_rejects_principle_without_belief():
+    config = _base_config()
+    config["first_principles"] = [{"post_url": "https://example.com"}]
+    with pytest.raises(SystemExit):
+        _validate(config)
+
+
+def test_validate_rejects_principle_url_without_title():
+    config = _base_config()
+    config["first_principles"] = [{"belief": "X", "post_url": "https://example.com/x"}]
+    with pytest.raises(SystemExit):
+        _validate(config)
+
+
+def test_validate_rejects_malformed_principle_url():
+    config = _base_config()
+    config["first_principles"] = [
+        {"belief": "X", "post_url": "example.com/x", "post_title": "X"}
+    ]
+    with pytest.raises(SystemExit):
+        _validate(config)
+
+
+def test_validate_rejects_non_list_first_principles():
+    config = _base_config()
+    config["first_principles"] = {"belief": "X"}
+    with pytest.raises(SystemExit):
+        _validate(config)

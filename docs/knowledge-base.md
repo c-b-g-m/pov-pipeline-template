@@ -12,6 +12,30 @@
 - **Key differences:** Auth via `Authorization: Bearer` header (not query param), channel-based targeting (not profile-based), `User-Agent` header required (Cloudflare blocks without it), `saveToDraft: true` to land as drafts.
 - **Generalization:** The template uses `organization_id` as a parameter (env var `BUFFER_ORGANIZATION_ID`) instead of hardcoding it.
 
+### Cross-reference positioning claims against actual code paths before writing customer copy
+**Date:** 2026-04-10
+**Type:** gotcha
+**Context:** Wrote a pitch template and landing page with the claim "no data leaves your machine." User caught it — the repo actually calls Anthropic (required), Brave (optional), and Firecrawl (optional).
+**Detail:** When writing customer-facing marketing copy for a code project, always grep the actual code paths (`discovery.py`, `drafter.py`, `buffer_client.py`) for outbound API calls before making data-residency or privacy claims. The "no data leaves your machine" framing was lazy and wrong. The honest framing — "no SaaS middle layer; your config, voice doc, and drafts live in your own repo, but the pipeline does call Anthropic/Brave/Firecrawl to do its job" — is sharper and actually holds up in a Fortune 500 security conversation.
+
+### Enumerate service-level data boundaries in a table for enterprise prospects
+**Date:** 2026-04-10
+**Type:** pattern
+**Context:** Fixing the overclaim above, needed a reusable way to describe data flow.
+**Detail:** For any pitch or README serving prospects with security review requirements, use an explicit table: service / required? / data sent / why. Each row names exactly what leaves the machine and for what purpose. The "drafter is isolated to one file, can be pointed at Bedrock" callout is a good escape hatch for prospects who need stricter guarantees — it signals the architecture accommodates their constraint without requiring a custom fork.
+
+### Pre-flight validation belongs in its own subcommand, not inline
+**Date:** 2026-04-10
+**Type:** pattern
+**Context:** Adding `--validate` to `pipeline/main.py` to catch onboarding traps before the first real run.
+**Detail:** Split the logic into a pure helper (`validate(config_path) -> list[str]`) that returns errors without exiting, plus a thin CLI wrapper (`_run_validate()`) that prints and exits. Makes the helper unit-testable and composable. Tests use `monkeypatch` to stub `shutil.which`, `subprocess.run`, and module-level path constants — simulates every failure mode without touching the real environment.
+
+### `npm run generate-og` regenerates ALL OG images, not just new ones
+**Date:** 2026-04-10
+**Type:** gotcha
+**Context:** Ran `npm run generate-og` in `demand-ai-studio` to create the new POV Pipeline card.
+**Detail:** The Puppeteer script auto-discovers every `index.html` file and regenerates every OG image. Even when visual output is identical, Puppeteer produces ~260 bytes of pixel-level noise per file. When adding a new freebie, expect ~9 other OG files to show up dirty — stage only the new one (`git add og-images/og-new-slug.png`) and `git checkout --` the rest.
+
 ### Trust the model over constraining it for AI-savvy forking audiences
 **Date:** 2026-04-10
 **Type:** decision

@@ -1,5 +1,33 @@
 # Build Log — pov-pipeline-template
 
+## 2026-04-10: --validate pre-flight + zero-context README polish (Kissinger pitch session)
+
+**Context:** Session was about pitching this repo as a freebie to a fractional-CMO prospect (Kissinger Group). Before pitching, audited the repo for coherence from a zero-context reader's perspective, then hardened the biggest onboarding traps.
+
+**What was built:**
+- **`--validate` pre-flight subcommand** in `pipeline/main.py`. New `validate(config_path) -> list[str]` helper (unit-testable, no sys.exit) + `_run_validate()` CLI wrapper + `--validate` argparse flag that short-circuits before any API calls. Checks: config loads, ANTHROPIC_API_KEY set, voice-guidelines.md exists, SITE_REPO_PATH set and exists, site.content_path exists inside SITE_REPO_PATH, `gh` CLI on PATH and authenticated (via `subprocess.run(["gh", "auth", "status"], timeout=10)`).
+- **`tests/test_validate.py`** — 8 new tests covering clean pass + 7 failure modes. Uses a `clean_state` fixture that monkeypatches `drafter.VOICE_GUIDELINES_PATH`, `main_module.shutil.which`, and `main_module.subprocess.run`; individual tests override pieces to simulate each failure.
+- **README polish for zero-context readers:**
+  - "Who is this for?" block after the pipeline diagram.
+  - Explicit Prerequisites section: Python 3.9+, `gh` CLI with install hint, Anthropic API key, site repo with pre-existing content_path.
+  - New Step 4 "Pre-flight check" referencing `--validate` before the first real run.
+  - "(must already exist)" inline note on `site.content_path` in the config table.
+- **Honest data-boundaries section** in README ("What leaves your machine"). Table showing which services are called (Anthropic required, Brave + Firecrawl optional, GitHub for PR), what data each sees, and why. Note that `pipeline/drafter.py` is isolated and can be pointed at an alternate Claude endpoint (e.g. AWS Bedrock) for enterprise data residency. Added because the initial pitch copy was overclaiming "no data leaves your machine" — the user caught it, so the repo docs needed to match the corrected story.
+- **Pipeline diagram** updated to show Firecrawl as an optional step between Discovery and Drafting, Brave labeled optional, "first principles" added to the drafting node.
+
+**What broke:**
+- First test run failed with `ModuleNotFoundError: No module named 'dotenv'`. The venv was stale — `python-dotenv>=1.0.0` was already in requirements.txt but not installed. `pip install python-dotenv` resolved it. Worth flagging because future contributors with stale venvs will hit the same confusing error.
+
+**Tech debt:**
+- `--validate` doesn't check `BRAVE_SEARCH_API_KEY` or `FIRECRAWL_API_KEY` because they're optional. Could surface the existing startup WARNING at pre-flight time. Small improvement.
+- README should probably call out the stale-venv trap explicitly.
+
+**Security review:** Ran `/security-review --mode vibe` after commit, before push. No critical findings. Three warnings, all inherited from existing page patterns (cosmetic email gate, shared Apps Script webhook URL, `subprocess.run` on `gh auth status` flagged so future edits don't switch to `shell=True`). Safe to push.
+
+**Commit:** `1a80b54` pushed to `c-b-g-m/pov-pipeline-template` main. 35/35 tests passing.
+
+---
+
 ## 2026-04-10: first_principles + audience features + trap fixes
 
 **What was built:**

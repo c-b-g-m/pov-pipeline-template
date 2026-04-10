@@ -65,15 +65,6 @@ def _is_index_url(url: str) -> bool:
     return False
 
 
-def _url_reachable(url: str, timeout: int = 10) -> bool:
-    try:
-        req = Request(url, method="HEAD", headers={"User-Agent": "POVPipelineBot/1.0"})
-        with urlopen(req, timeout=timeout) as resp:
-            return resp.status < 400
-    except Exception:
-        return False
-
-
 def _matches_keywords(text: str, keywords: list) -> bool:
     text_lower = text.lower()
     return any(kw.lower() in text_lower for kw in keywords)
@@ -240,19 +231,9 @@ def discover(config: dict, brave_api_key: str = "") -> List[dict]:
     log.info("Discovery: %d total, %d unique, %d after dedup with history",
              len(all_candidates), len(seen), len(unique))
 
-    # Check reachability for top candidates
-    reachable = []
-    for c in unique[:max_candidates * 3]:
-        if _url_reachable(c["url"]):
-            reachable.append(c)
-        else:
-            log.debug("Unreachable: %s", c["url"])
-        if len(reachable) >= max_candidates * 2:
-            break
-
     # Rank: articles with a detected theme score higher
-    themed = [c for c in reachable if c.get("theme")]
-    unthemed = [c for c in reachable if not c.get("theme")]
+    themed = [c for c in unique if c.get("theme")]
+    unthemed = [c for c in unique if not c.get("theme")]
     ranked = themed + unthemed
 
     result = ranked[:max_candidates]

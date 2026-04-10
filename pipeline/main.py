@@ -10,6 +10,7 @@ Usage:
   python3 -m pipeline.main                 # Full run
   python3 -m pipeline.main --dry-run       # Discovery + draft, no PR/push
   python3 -m pipeline.main --discover-only # Discovery only, print candidates
+  python3 -m pipeline.main --validate      # Check config, env, prerequisites; no API calls
 
 Required environment variables (in .env or .env.local):
   ANTHROPIC_API_KEY     Claude API key
@@ -25,6 +26,8 @@ Optional:
 import argparse
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import time
 
@@ -59,15 +62,105 @@ def _setup_logging(config: dict):
     )
 
 
+def validate(config_path: str = None) -> list:
+    """
+    Pre-flight check: verify config, env vars, and prerequisites are in place
+    before running the pipeline. Returns a list of human-readable error strings;
+    an empty list means everything passed. Does not call any paid APIs.
+
+    Checks:
+      - config.yaml loads and passes schema validation
+      - ANTHROPIC_API_KEY is set
+      - voice-guidelines.md exists
+      - SITE_REPO_PATH is set and points to an existing directory
+      - site.content_path (from config) exists inside SITE_REPO_PATH
+      - `gh` CLI is installed and authenticated
+    """
+    from .drafter import VOICE_GUIDELINES_PATH
+
+    errors = []
+
+    try:
+        config = load_config(config_path)
+    except SystemExit:
+        errors.append("config.yaml failed to load — see log output above for details")
+        return errors
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        errors.append("ANTHROPIC_API_KEY is not set (add it to .env.local or .env)")
+
+    if not os.path.exists(VOICE_GUIDELINES_PATH):
+        errors.append(
+            f"voice-guidelines.md not found at {VOICE_GUIDELINES_PATH} "
+            "(copy voice-guidelines.example.md to voice-guidelines.md and customize)"
+        )
+
+    site_repo_path = os.environ.get("SITE_REPO_PATH", "")
+    if not site_repo_path:
+        errors.append("SITE_REPO_PATH is not set (add it to .env.local or .env)")
+    elif not os.path.isdir(site_repo_path):
+        errors.append(f"SITE_REPO_PATH does not exist or is not a directory: {site_repo_path}")
+    else:
+        content_path = config.get("site", {}).get("content_path", "")
+        if content_path:
+            full_content_path = os.path.join(site_repo_path, content_path)
+            if not os.path.isdir(full_content_path):
+                errors.append(
+                    f"site.content_path directory does not exist: {full_content_path} "
+                    "(create it in your site repo before running the pipeline)"
+                )
+
+    if not shutil.which("gh"):
+        errors.append(
+            "`gh` CLI not found on PATH "
+            "(install from https://cli.github.com, then run `gh auth login`)"
+        )
+    else:
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "status"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                errors.append("`gh` CLI is installed but not authenticated (run `gh auth login`)")
+        except (subprocess.TimeoutExpired, OSError) as e:
+            errors.append(f"`gh auth status` check failed: {e}")
+
+    return errors
+
+
+def _run_validate(config_path: str = None) -> int:
+    """CLI wrapper for validate() — prints results and returns exit code."""
+    print("POV Pipeline — pre-flight validation")
+    print("=" * 60)
+    errors = validate(config_path)
+    if errors:
+        print(f"FAILED — {len(errors)} issue(s) found:\n")
+        for i, err in enumerate(errors, 1):
+            print(f"  {i}. {err}")
+        print("\nFix the issues above, then re-run with --validate until it passes.")
+        return 1
+    print("OK — config, environment, and prerequisites all look good.")
+    print("Ready to run: python3 -m pipeline.main --dry-run")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="POV Pipeline")
     parser.add_argument("--dry-run", action="store_true",
                         help="Discovery + draft, skip PR creation")
     parser.add_argument("--discover-only", action="store_true",
                         help="Run discovery only, print candidates")
+    parser.add_argument("--validate", action="store_true",
+                        help="Check config, env vars, and prerequisites; no API calls")
     parser.add_argument("--config", default=None,
                         help="Path to config.yaml (default: repo root)")
     args = parser.parse_args()
+
+    if args.validate:
+        sys.exit(_run_validate(args.config))
 
     # Load config
     config = load_config(args.config)

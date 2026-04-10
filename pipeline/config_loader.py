@@ -34,8 +34,24 @@ def load_config(path: str = None) -> dict:
         )
         sys.exit(1)
 
-    with open(path, "r") as f:
-        config = yaml.safe_load(f)
+    try:
+        with open(path, "r") as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        log.critical(
+            "config.yaml contains invalid YAML.\n"
+            "  %s\n"
+            "Check indentation and syntax. See config.example.yaml for a working example.",
+            e,
+        )
+        sys.exit(1)
+
+    if not isinstance(config, dict):
+        log.critical(
+            "config.yaml is empty or not a YAML mapping.\n"
+            "See config.example.yaml for a complete working example."
+        )
+        sys.exit(1)
 
     _validate(config)
     _CONFIG_CACHE = config

@@ -85,6 +85,14 @@ def main():
         config.get("pipeline", {}).get("rate_limit_sleep", 2)
     ))
 
+    # MAX_CANDIDATES env override — applied to config before discovery reads it
+    max_candidates_override = os.environ.get("MAX_CANDIDATES")
+    if max_candidates_override:
+        try:
+            config.setdefault("discovery", {})["max_candidates"] = int(max_candidates_override)
+        except ValueError:
+            log.warning("MAX_CANDIDATES env var is not an integer: %r — ignoring", max_candidates_override)
+
     log.info("=" * 60)
     log.info("POV Pipeline — starting run")
     log.info("  Author: %s", config["author"]["name"])
@@ -103,6 +111,15 @@ def main():
     if not args.dry_run and not args.discover_only and site_repo_path and not os.path.isdir(site_repo_path):
         log.critical("SITE_REPO_PATH does not exist: %s", site_repo_path)
         sys.exit(1)
+
+    # Warn if Brave queries are configured but the API key is missing — they'll silently return no results
+    brave_queries = config.get("discovery", {}).get("brave_queries", [])
+    if brave_queries and not brave_key:
+        log.warning(
+            "config has %d brave_queries but BRAVE_SEARCH_API_KEY is not set. "
+            "These queries will return zero results. Set the key in .env.local or remove brave_queries from config.yaml.",
+            len(brave_queries),
+        )
 
     # ─── Step 1: Discovery ───────────────────────────────────────────────
     log.info("Step 1: Discovery")

@@ -124,9 +124,11 @@ The included workflow (`.github/workflows/pipeline.yml`) runs the pipeline daily
    - `SITE_REPO_TOKEN` — a GitHub PAT with `repo` scope for your site repo
    - (Optional) `BRAVE_SEARCH_API_KEY`, `FIRECRAWL_API_KEY`
 
-2. **Important:** Your `config.yaml` must be committed to the repo for GitHub Actions to read it. Since it's gitignored by default, you can either:
-   - Remove `config.yaml` from `.gitignore` (if your config doesn't contain secrets)
-   - Or use a GitHub Actions step to generate it from secrets/variables
+2. **Important — config.yaml visibility.** Your `config.yaml` must be readable by GitHub Actions, but it's gitignored by default. You have two options:
+   - **Commit it.** Remove `config.yaml` from `.gitignore`. Only do this if your config contains NO secrets (it shouldn't — API keys belong in `.env.local` / GitHub Secrets). Your author name, feeds, themes, and publishing target will become public if your pipeline repo is public.
+   - **Generate it at runtime.** Keep `config.yaml` gitignored. Add a workflow step that writes `config.yaml` from a GitHub Actions variable or template before the pipeline runs. This keeps the config private but adds complexity.
+
+   **Never commit `.env*` files or hardcode API keys in `config.yaml`.** If you accidentally commit a key, rotate it immediately — git history is forever.
 
 3. Adjust the cron schedule in `.github/workflows/pipeline.yml` to your preferred time.
 

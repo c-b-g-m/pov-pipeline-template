@@ -1,4 +1,8 @@
-# User config (contains personal data)
+# User config (contains personal data — author name, site URLs, publishing targets)
+# NOTE: If you run on GitHub Actions, you have two options:
+#   1. Remove config.yaml from this list and commit it (ONLY if it contains no secrets)
+#   2. Keep it ignored and generate config.yaml from GitHub Secrets in a workflow step
+# NEVER put API keys in config.yaml — those belong in .env.local / GitHub Secrets.
 config.yaml
 voice-guidelines.md
 

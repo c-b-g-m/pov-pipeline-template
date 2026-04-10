@@ -10,6 +10,7 @@ POV Pipeline — an industry-agnostic, open-source content pipeline that discove
 python3 -m pipeline.main                 # Full run
 python3 -m pipeline.main --dry-run       # Discover + draft, no PRs
 python3 -m pipeline.main --discover-only # Discovery only
+python3 -m pipeline.main --validate      # Pre-flight check: config, env, gh CLI — no API calls
 pytest tests/ -v                         # Run tests
 ```
 

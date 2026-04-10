@@ -6,11 +6,13 @@ An automated content pipeline that discovers industry news, drafts opinionated t
 **The pipeline handles:** scanning for articles, drafting takes, and opening PRs for review.
 
 ```
-RSS Feeds / Brave Search
+RSS Feeds + Brave Search (optional)
         |
     Discovery (filter by your keywords + themes)
         |
-    Drafting (Claude API + your voice guidelines)
+    Firecrawl (optional — scrape full article text)
+        |
+    Drafting (Claude API + your voice guidelines + first principles)
         |
     Publishing (GitHub PR on your site repo)
         |
@@ -19,7 +21,22 @@ RSS Feeds / Brave Search
     Buffer (post-merge action sends edited social draft)
 ```
 
+## Who is this for?
+
+Fractional CMOs, consultants, founders, thought leaders, and product marketers who want to publish opinionated takes on industry news consistently — without becoming a full-time content operation. If you already have strong views but not enough hours to write every week, this pipeline drafts takes in your voice and hands you editable PRs. You review, edit, and merge. The pipeline does the drafting; you stay in control of the final word.
+
+You do **not** need to be a developer to run it, but you will touch a terminal and a GitHub repo. If that's a hard stop, this isn't the right tool yet.
+
 ## Quick Start
+
+### Prerequisites
+
+Before you start, confirm you have:
+
+- **Python 3.9+** — check with `python3 --version`
+- **`gh` CLI** — GitHub's command-line tool, installed and authenticated. Install with `brew install gh` (macOS) or see https://cli.github.com, then run `gh auth login`.
+- **An Anthropic API key** — get one at https://console.anthropic.com
+- **A site repo** — an existing GitHub repo where drafts will be opened as PRs. The target directory inside that repo (e.g. `content/posts/`) must already exist.
 
 ### 1. Fork or clone this repo
 
@@ -51,7 +68,17 @@ Then edit:
 - **`voice-guidelines.md`** — your editorial voice, tone, structure, and constraints
 - **`.env`** — your API keys and site repo path
 
-### 4. Run
+### 4. Pre-flight check
+
+Before your first real run, verify your config, env vars, and prerequisites:
+
+```bash
+python3 -m pipeline.main --validate
+```
+
+This checks that `config.yaml` loads, `ANTHROPIC_API_KEY` is set, `voice-guidelines.md` exists, `SITE_REPO_PATH` points at a real directory containing your `site.content_path`, and the `gh` CLI is authenticated. No API calls are made. Fix any reported issues before moving on.
+
+### 5. Run
 
 ```bash
 # Discovery only — see what articles are found
@@ -73,7 +100,7 @@ All pipeline behavior is driven by this file. See `config.example.yaml` for a co
 | Section | What you provide |
 |---|---|
 | `author` | Your name, role, and specialization |
-| `site` | Your domain, content path in your site repo, URL pattern |
+| `site` | Your domain, content path in your site repo (must already exist), URL pattern |
 | `audience` | *Optional.* Who you're writing FOR — description, what they already know, what they care about |
 | `first_principles` | *Optional.* Foundational beliefs the model reasons FROM, with optional links to explanatory posts |
 | `discovery` | RSS feeds, Brave search queries, industry keywords, blocked domains |
@@ -111,6 +138,20 @@ A prose document that defines your editorial voice. Claude reads this before dra
 | `SITE_REPO_PATH` | Yes (local runs) | Absolute path to your site's git repo |
 | `BRAVE_SEARCH_API_KEY` | No | Enables Brave Web Search for broader discovery |
 | `FIRECRAWL_API_KEY` | No | Enables full article scraping for better draft quality |
+
+## What leaves your machine
+
+This is an important question for anyone running the pipeline inside a regulated or privacy-sensitive environment. There is **no SaaS middle layer** — your `config.yaml`, `voice-guidelines.md`, discovered candidates, and drafts all live in your own repo and on your own disk. But the pipeline does call three external APIs to do its job. Here is exactly what each one sees:
+
+| Service | Required? | Data sent | Why |
+|---|---|---|---|
+| **Anthropic (Claude)** | Yes | The article text or summary, your `voice-guidelines.md`, your `audience` and `first_principles` config blocks, and the drafting prompt | This is what writes the take. Without it, the pipeline cannot draft. |
+| **Brave Search API** | No | The search query strings you define in `config.yaml` under `discovery.brave_queries` | Broader article discovery beyond your RSS feeds. Skip it to stay RSS-only. |
+| **Firecrawl** | No | The URL of each candidate article | Fetches full article text so Claude has more to work with than the RSS summary. Skip it and Claude drafts from the summary only. |
+| **GitHub** | Yes | Your drafted content, as a pull request on the site repo you configured | This is the editorial gate — every draft goes through a PR on your own repo. |
+| **RSS feeds** | — | Nothing outbound beyond a standard HTTP GET | Public feeds. No credentials, no identifiers. |
+
+Your config, voice doc, first principles, and drafts never touch any third-party storage service. The only content sent to Anthropic is what's needed to write a single draft; nothing is retained or used by the pipeline after the response comes back. If you need to run this with stricter guarantees (e.g. an enterprise AWS Bedrock deployment of Claude instead of the public Anthropic API), the drafter is isolated to `pipeline/drafter.py` and can be pointed at an alternate Claude endpoint with a small change.
 
 ## GitHub Actions (Automated Scheduling)
 

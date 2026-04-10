@@ -81,6 +81,36 @@ def _validate(config: dict):
         if not theme.get("keywords"):
             errors.append(f"themes[{i}].keywords is required (need at least one keyword)")
 
+    # Audience — optional block. If present, must be a dict of string fields.
+    audience = config.get("audience")
+    if audience is not None:
+        if not isinstance(audience, dict):
+            errors.append("audience: must be a mapping with description/knows_already/cares_about fields")
+        else:
+            for field in ("description", "knows_already", "cares_about"):
+                value = audience.get(field)
+                if value is not None and not isinstance(value, str):
+                    errors.append(f"audience.{field}: must be a string")
+
+    # First principles — optional list. Each entry needs `belief`.
+    # If `post_url` is set, `post_title` is required and url must start with http.
+    principles = config.get("first_principles")
+    if principles is not None:
+        if not isinstance(principles, list):
+            errors.append("first_principles: must be a list")
+        else:
+            for i, p in enumerate(principles):
+                if not isinstance(p, dict):
+                    errors.append(f"first_principles[{i}]: must be a mapping with a 'belief' field")
+                    continue
+                if not p.get("belief") or not isinstance(p.get("belief"), str):
+                    errors.append(f"first_principles[{i}].belief: required, must be a non-empty string")
+                if p.get("post_url"):
+                    if not isinstance(p["post_url"], str) or not p["post_url"].startswith(("http://", "https://")):
+                        errors.append(f"first_principles[{i}].post_url: must be a URL starting with http:// or https://")
+                    if not p.get("post_title"):
+                        errors.append(f"first_principles[{i}].post_title: required when post_url is set (link needs anchor text)")
+
     if errors:
         log.critical(
             "config.yaml validation failed:\n  - %s\n\n"

@@ -72,3 +72,46 @@ def test_build_system_prompt_contains_sections():
     assert "The news" in prompt
     assert "My take" in prompt
     assert "The so-what" in prompt
+
+
+def test_build_system_prompt_includes_audience_when_present():
+    from pipeline.drafter import _build_system_prompt
+    config = _load_config()
+    prompt = _build_system_prompt(config)
+
+    assert "## Audience" in prompt
+    assert "Test readers who care about test things" in prompt
+    assert "Test basics" in prompt
+    assert "Test outcomes" in prompt
+
+
+def test_build_system_prompt_omits_audience_when_absent():
+    from pipeline.drafter import _build_system_prompt
+    config = _load_config()
+    del config["audience"]
+    prompt = _build_system_prompt(config)
+
+    assert "## Audience" not in prompt
+
+
+def test_build_system_prompt_includes_first_principles_when_present():
+    from pipeline.drafter import _build_system_prompt
+    config = _load_config()
+    prompt = _build_system_prompt(config)
+
+    assert "## First Principles" in prompt
+    assert "Testing is non-negotiable." in prompt
+    assert "Simple is better than clever." in prompt
+    # Linked principle renders its markdown link
+    assert "[Why tests matter](https://example.com/why-tests)" in prompt
+    # Unlinked principle has no link markup
+    assert "Explanatory post" in prompt  # at least one principle does
+
+
+def test_build_system_prompt_omits_first_principles_when_absent():
+    from pipeline.drafter import _build_system_prompt
+    config = _load_config()
+    del config["first_principles"]
+    prompt = _build_system_prompt(config)
+
+    assert "## First Principles" not in prompt

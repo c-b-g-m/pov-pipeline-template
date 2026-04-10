@@ -31,3 +31,4 @@ pytest tests/ -v                         # Run tests
 - **Config-driven:** Single `config.yaml` + `voice-guidelines.md` define all behavior.
 - **GitHub PRs as editorial gate:** Human reviews every draft before it goes live.
 - **Output format pluggable:** MDX or Markdown via config flag.
+- **One author, one audience, one site per instance.** Multi-audience or multi-persona setups use multiple clones of this repo, not multiple entries in one config. Mixing audiences produces averaged, edgeless takes. See README's "Running multiple pipelines" section.

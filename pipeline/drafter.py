@@ -60,11 +60,59 @@ def _slugify(title: str) -> str:
     return slug[:80]
 
 
+def _build_audience_block(config: dict) -> str:
+    """Build the audience framing block, or empty string if not configured."""
+    audience = config.get("audience") or {}
+    description = audience.get("description", "").strip()
+    knows_already = audience.get("knows_already", "").strip()
+    cares_about = audience.get("cares_about", "").strip()
+
+    if not any([description, knows_already, cares_about]):
+        return ""
+
+    lines = ["## Audience", "", "You are writing for a specific reader. Calibrate vocabulary, assumed knowledge, and framing against them — do not write for a general audience.", ""]
+    if description:
+        lines.append(f"- Who they are: {description}")
+    if knows_already:
+        lines.append(f"- What they already know: {knows_already}")
+    if cares_about:
+        lines.append(f"- What they care about: {cares_about}")
+    return "\n".join(lines) + "\n"
+
+
+def _build_principles_block(config: dict) -> str:
+    """Build the first-principles block, or empty string if not configured."""
+    principles = config.get("first_principles") or []
+    if not principles:
+        return ""
+
+    lines = []
+    for p in principles:
+        line = f"- {p['belief']}"
+        if p.get("post_url") and p.get("post_title"):
+            line += f'\n  Explanatory post: [{p["post_title"]}]({p["post_url"]})'
+        lines.append(line)
+
+    return (
+        "## First Principles\n\n"
+        "These are foundational beliefs you reason *from*. Never contradict them. "
+        "When a principle is the crux of an argument — not just a passing reference — "
+        "you may link to its explanatory post using standard markdown. Use at most one "
+        "such link per take, and only when it genuinely helps a reader who wants to go "
+        "deeper. Do not force a link.\n\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+
+
 def _build_system_prompt(config: dict) -> str:
     """Build the system prompt dynamically from config values."""
     author = config["author"]["name"]
     role = config["author"]["role"]
     specialization = config["author"]["specialization"]
+
+    audience_block = _build_audience_block(config)
+    principles_block = _build_principles_block(config)
 
     # Build theme list
     themes = config.get("themes", [])
@@ -108,6 +156,8 @@ You are a ghostwriter for {author}, a {role} specializing in {specialization}. \
 Your job is to draft short opinion pieces ("POV takes") about {specialization} news \
 for their website and {social_platform.title()}.
 
+{audience_block}
+{principles_block}
 You will receive:
 1. Voice guidelines that define their tone, POV, and structure
 2. A source article URL, title, and summary

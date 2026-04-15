@@ -7,8 +7,8 @@
 # Why post-merge instead of in the pipeline?
 # The pipeline drafts content via Claude, but you'll often edit it before merging.
 # Posting from the pipeline would send the unedited AI draft. This workflow reads
-# the linkedInDraft field from the merged file's frontmatter — the version you
-# actually approved.
+# the Social Draft block from the merged PR's body — the version you actually
+# approved and edited in the PR description.
 #
 # Required secrets (in your SITE repo's Settings > Secrets):
 #   BUFFER_ACCESS_TOKEN      — Buffer API token (get one at https://buffer.com/developers)
@@ -37,7 +37,7 @@ jobs:
         with:
           fetch-depth: 2    # Need HEAD~1 to diff
 
-      - name: Find merged POV files
+      - name: Check for merged POV files
         id: find-files
         run: |
           # Adjust the path pattern to match your content directory
@@ -48,26 +48,51 @@ jobs:
           else
             echo "Found files: $FILES"
             echo "found=true" >> "$GITHUB_OUTPUT"
-            # Store as multiline output
-            {
-              echo 'files<<EOF'
-              echo "$FILES"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up Python
+      - name: Get merged PR body
+        id: get-pr
         if: steps.find-files.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the PR that was just merged by its merge commit SHA
+          PR_BODY=$(gh pr list \
+            --state merged \
+            --base main \
+            --search "${{ github.sha }}" \
+            --json body \
+            --jq '.[0].body' 2>/dev/null || echo "")
+
+          if [ -z "$PR_BODY" ]; then
+            # Fallback: get the most recently merged PR
+            PR_BODY=$(gh pr list \
+              --state merged \
+              --base main \
+              --limit 1 \
+              --json body \
+              --jq '.[0].body')
+          fi
+
+          if [ -z "$PR_BODY" ]; then
+            echo "Could not retrieve PR body"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Write PR body to a temp file to avoid shell escaping issues
+          echo "$PR_BODY" > /tmp/pr_body.txt
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: steps.get-pr.outputs.found == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
-        if: steps.find-files.outputs.found == 'true'
-        run: pip install pyyaml
+          # No additional packages needed — stdlib only
 
       - name: Send to Buffer
-        if: steps.find-files.outputs.found == 'true'
+        if: steps.get-pr.outputs.found == 'true'
         env:
           BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
           BUFFER_ORGANIZATION_ID: ${{ secrets.BUFFER_ORGANIZATION_ID }}
@@ -77,7 +102,6 @@ jobs:
           import json
           import os
           import re
-          import yaml
           from urllib.request import Request, urlopen
 
           BUFFER_API = "https://api.buffer.com"
@@ -103,6 +127,28 @@ jobs:
               with urlopen(req, timeout=15) as resp:
                   return json.loads(resp.read().decode())
 
+          # Read PR body written by the previous step
+          with open("/tmp/pr_body.txt") as f:
+              pr_body = f.read()
+
+          # Extract the Social Draft block — the text between the ``` fences
+          # under the "### Social Draft" heading
+          match = re.search(
+              r'###\s*Social Draft\s*\n```[^\n]*\n(.*?)\n```',
+              pr_body,
+              re.DOTALL,
+          )
+          if not match:
+              print("No Social Draft block found in PR body — skipping")
+              exit(0)
+
+          draft_text = match.group(1).strip()
+          if not draft_text:
+              print("Social Draft block is empty — skipping")
+              exit(0)
+
+          print(f"Extracted draft ({len(draft_text)} chars)")
+
           # Get channel ID
           result = graphql("""
               query GetChannels($input: ChannelsInput!) {
@@ -123,63 +169,31 @@ jobs:
 
           print(f"Using {SERVICE} channel: {channel_id}")
 
-          # Process each merged file
-          files_str = os.environ.get("FILES", "")
-          if not files_str:
-              # Read from step output via file list
-              files_str = """${{ steps.find-files.outputs.files }}"""
-
-          for filepath in files_str.strip().splitlines():
-              filepath = filepath.strip()
-              if not filepath:
-                  continue
-
-              print(f"Processing: {filepath}")
-
-              with open(filepath) as f:
-                  content = f.read()
-
-              # Parse YAML frontmatter
-              match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
-              if not match:
-                  print(f"  No frontmatter found — skipping")
-                  continue
-
-              frontmatter = yaml.safe_load(match.group(1))
-              draft_text = frontmatter.get("linkedInDraft", "")
-              if not draft_text:
-                  print(f"  No linkedInDraft in frontmatter — skipping")
-                  continue
-
-              # Unescape newlines from frontmatter string
-              draft_text = draft_text.replace("\\n", "\n")
-
-              print(f"  Sending draft to Buffer ({len(draft_text)} chars)...")
-
-              result = graphql("""
-                  mutation CreatePost($input: CreatePostInput!) {
-                      createPost(input: $input) {
-                          ... on PostActionSuccess {
-                              post { id text }
-                          }
-                          ... on MutationError { message }
+          result = graphql("""
+              mutation CreatePost($input: CreatePostInput!) {
+                  createPost(input: $input) {
+                      ... on PostActionSuccess {
+                          post { id text }
                       }
+                      ... on MutationError { message }
                   }
-              """, {
-                  "input": {
-                      "text": draft_text,
-                      "channelId": channel_id,
-                      "schedulingType": "automatic",
-                      "mode": "addToQueue",
-                      "saveToDraft": True,
-                  }
-              })
+              }
+          """, {
+              "input": {
+                  "text": draft_text,
+                  "channelId": channel_id,
+                  "schedulingType": "automatic",
+                  "mode": "addToQueue",
+                  "saveToDraft": True,
+              }
+          })
 
-              data = result.get("data", {}).get("createPost", {})
-              if "post" in data:
-                  print(f"  Buffer draft created (ID: {data['post']['id']})")
-              else:
-                  error = data.get("message", result.get("errors", "Unknown error"))
-                  print(f"  Buffer error: {error}")
+          data = result.get("data", {}).get("createPost", {})
+          if "post" in data:
+              print(f"Buffer draft created (ID: {data['post']['id']})")
+          else:
+              error = data.get("message", result.get("errors", "Unknown error"))
+              print(f"Buffer error: {error}")
+              exit(1)
 
           SCRIPT

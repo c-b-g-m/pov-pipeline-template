@@ -1,5 +1,11 @@
 # Knowledge Base — pov-pipeline-template
 
+### Buffer action reads from merged PR body, not file frontmatter
+**Date:** 2026-04-15
+**Type:** decision / gotcha
+**Context:** Buffer was sending the original Claude-generated LinkedIn draft instead of the edited version approved in the PR.
+**Detail:** The `buffer-on-merge.yml` action was reading `linkedInDraft` from the merged file's YAML frontmatter — the original Claude draft, never touched by PR edits. Users edit the Social Draft block in the PR description; that's the source of truth. Fixed by adding a "Get merged PR body" step (`gh pr list --search <sha>`) and parsing the `### Social Draft` code block from the PR body via regex. File frontmatter is no longer read; pyyaml dependency removed. The same fix was applied to both `cazimi-marketing-com` (live) and `pov-pipeline-template` (example).
+
 ## 2026-04-09: Buffer flow is post-merge, not inline
 - **Decision:** Buffer posting was removed from the pipeline and moved to a post-merge GitHub Action on the site repo.
 - **Why:** The pipeline sends the original AI draft to Buffer before the user reviews/edits it. Moving to post-merge ensures only the reviewed version reaches social.

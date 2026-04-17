@@ -1,5 +1,26 @@
 # Build Log — pov-pipeline-template
 
+## 2026-04-15: Fix Buffer action to read social draft from merged PR body
+
+**Context:** Buffer drafts were showing the original Claude-generated LinkedIn draft, not the version edited and approved in the GitHub PR.
+
+**Root cause:** `buffer-on-merge.yml` was reading `linkedInDraft` from the merged file's YAML frontmatter — the original AI draft. Edits made to the Social Draft block in the PR description were never picked up.
+
+**What was built:**
+- Rewrote `buffer-on-merge.yml` in `cazimi-marketing-com` to fetch the merged PR body via `gh pr list --search <sha>` (with recency fallback), parse the `### Social Draft` code block, and send that to Buffer. Removed pyyaml dependency.
+- Applied the same fix to `buffer-on-merge.example.yml` in `pov-pipeline-template`.
+- Added `--diff-filter=A` to the git diff in the "Find merged POV files" step (only newly added files, not modified ones).
+
+**What broke:** Nothing. Push to `cazimi-marketing-com` main was blocked by branch protection — required a PR (`c-b-g-m/cazimi-marketing-com#33`), merged same session.
+
+**Tech debt:** None introduced.
+
+**Commits:**
+- `cazimi-marketing-com`: `7946c01` (merged via PR #33 → `9b7b2f9`)
+- `pov-pipeline-template`: `b83a66c`
+
+---
+
 ## 2026-04-10: --validate pre-flight + zero-context README polish (Kissinger pitch session)
 
 **Context:** Session was about pitching this repo as a freebie to a fractional-CMO prospect (Kissinger Group). Before pitching, audited the repo for coherence from a zero-context reader's perspective, then hardened the biggest onboarding traps.

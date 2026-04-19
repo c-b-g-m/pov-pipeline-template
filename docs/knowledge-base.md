@@ -89,3 +89,9 @@
 **Type:** gotcha
 **Context:** Push rejected because `origin/main` had a commit (`e7f8013`) that wasn't in the local branch.
 **Detail:** The unknown commit turned out to be from a different Claude Code session the user ran the night before. Author + timestamp matched, no file overlap with local commits, clean rebase. Always investigate unfamiliar remote state before force-pushing or discarding — it may represent the user's in-progress work from another session. In this repo especially, multi-session work is normal.
+
+### Frame POV Pipeline as "opinion engine, not content generator" for GTM audiences
+**Date:** 2026-04-18
+**Type:** decision
+**Context:** Choosing positioning language for a non-technical GTM leader audience in a community presentation.
+**Detail:** "Opinion engine" lands better than "content generator" with GTM leaders because they've already seen generic AI content. The distinction emphasizes that the pipeline reads your voice guidelines and produces opinionated takes — not templates. Pair it with the editorial gate argument: "nothing publishes without your sign-off."

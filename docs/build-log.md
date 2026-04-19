@@ -1,5 +1,21 @@
 # Build Log — pov-pipeline-template
 
+## 2026-04-18: GTM community deck brief + Claude Design prompt
+
+**Context:** Chris needed presentation materials for a live GTM community session on the POV Pipeline — audience is go-to-market leaders, not developers.
+
+**What was built:**
+- `docs/sessions/pov-pipeline-gtm-deck-brief.md` — 12-slide content brief with headlines, bullets, and speaker notes. Covers: what the workflow does, tools it uses, how to set it up.
+- `docs/sessions/pov-pipeline-claude-design-prompt.md` — self-contained Claude Design prompt Chris can paste to generate the visual deck.
+
+**Style reference used:** `dais-pipeline/teaching-ai-fluency/` (outcome contract format, facilitator session structure).
+
+**What broke:** Nothing. No code changes this session.
+
+**Tech debt:** None introduced.
+
+---
+
 ## 2026-04-15: Fix Buffer action to read social draft from merged PR body
 
 **Context:** Buffer drafts were showing the original Claude-generated LinkedIn draft, not the version edited and approved in the GitHub PR.

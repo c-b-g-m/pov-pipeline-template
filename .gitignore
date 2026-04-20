@@ -21,6 +21,9 @@ venv/
 state/processed_urls.json
 *.log
 
+# Session logs (local only — not for public repo)
+docs/sessions/
+
 # OS
 .DS_Store
 Thumbs.db

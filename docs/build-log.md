@@ -1,5 +1,16 @@
 # Build Log — pov-pipeline-template
 
+## 2026-04-20: GTM Deck — Favicon
+
+**What was built:**
+- Added aurora gradient bolt as favicon to `docs/deck/POV Pipeline Deck.html` via inline SVG data URI — no external file needed.
+
+**What broke:** Nothing.
+
+**Tech debt:** None introduced.
+
+---
+
 ## 2026-04-20: GTM Deck — Closing Slide
 
 **What was built:**

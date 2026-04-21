@@ -1,5 +1,13 @@
 # Knowledge Base — pov-pipeline-template
 
+### Inline SVG favicon via data URI — no external file needed
+**Date:** 2026-04-20
+**Type:** pattern
+**Context:** Adding the aurora gradient bolt as a browser tab favicon to the deck HTML.
+**Detail:** Use `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,...">` with a percent-encoded SVG string. Keeps the deck self-contained — no favicon.svg file to manage. linearGradient works fine inside the data URI as long as the `id` reference (`url(#g)`) matches the inline `<defs>` block. Special chars to encode: `#` → `%23`, `<` → `%3C`, `>` → `%3E`, `'` stays as-is inside double-quoted href.
+
+---
+
 ### `background-clip: text` clips descenders — fix with padding-bottom
 **Date:** 2026-04-20
 **Type:** gotcha

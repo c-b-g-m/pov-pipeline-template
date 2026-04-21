@@ -1,5 +1,40 @@
 # Build Log — pov-pipeline-template
 
+## 2026-04-20: GTM Deck — Closing Slide
+
+**What was built:**
+- Slide 13 (closing) finalized and merged into `docs/deck/POV Pipeline Deck.html`
+- Three layout options prototyped as standalone HTML files; Option B (left-panel split) selected
+- Final design: circular headshot, aurora gradient on presenter name, Demand AI.Studio wordmark one-line, "Keep going" eyebrow, two CTA cards with URL-level arrows
+- `docs/deck/` added to `.gitignore` — personal assets (headshot, URLs) must not reach the public repo
+- Three draft option files deleted after merge
+
+**What broke:**
+- `background-clip: text` clipped the descender on "George-McFerrin" — fixed with `padding-bottom: 0.12em`
+- Chrome `.mark` block persists on every slide — cleared `.mark` content on slide 13's chrome div to suppress the redundant dAIs mark
+
+**Tech debt:** None introduced.
+
+---
+
+## 2026-04-20: Remove session logs from public repo
+
+**Context:** Session logs in `docs/sessions/` were committed to the public repo and needed to be removed without deleting local files.
+
+**What was built:**
+- Added `docs/sessions/` to `.gitignore`
+- Untracked all existing session files via `git rm -r --cached`
+- Rewrote git history with `git filter-repo --path docs/sessions/ --invert-paths --force`
+- Re-added `origin` remote (filter-repo removes it automatically) and force pushed
+
+**What broke:** Nothing. All session files remain on disk locally.
+
+**Tech debt:** None introduced.
+
+**Commits:** `7fa2fb9` (gitignore + untrack) → history rewritten → `3068dbc` on remote.
+
+---
+
 ## 2026-04-18: GTM community deck brief + Claude Design prompt
 
 **Context:** Chris needed presentation materials for a live GTM community session on the POV Pipeline — audience is go-to-market leaders, not developers.

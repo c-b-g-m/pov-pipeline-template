@@ -24,6 +24,9 @@ state/processed_urls.json
 # Session logs (local only — not for public repo)
 docs/sessions/
 
+# Presentation deck (contains personal data — headshot, personal URLs, brand assets)
+docs/deck/
+
 # OS
 .DS_Store
 Thumbs.db

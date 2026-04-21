@@ -1,5 +1,49 @@
 # Knowledge Base — pov-pipeline-template
 
+### `background-clip: text` clips descenders — fix with padding-bottom
+**Date:** 2026-04-20
+**Type:** gotcha
+**Context:** Applying aurora gradient to presenter name in the deck closing slide; "g" in "George-McFerrin" was visually cut off.
+**Detail:** CSS `background-clip: text` (and `-webkit-background-clip: text`) clips the painted region to the text bounding box, which excludes descenders. Fix: add `padding-bottom: 0.1em–0.15em` to the element. This expands the clipping box to include the descender. Required on any gradient text element that contains descending characters (g, j, p, q, y).
+
+### Clearing the chrome `.mark` on a specific slide
+**Date:** 2026-04-20
+**Type:** pattern
+**Context:** The deck chrome bar shows the brand mark (bolt + "dAIs") on every slide. Slide 13 already had the full wordmark in the left panel, making the chrome mark redundant.
+**Detail:** The `.chrome .mark` block is rendered per-slide. To suppress it on a specific slide, replace the inner content of that slide's `.mark` div with nothing: `<div class="mark"></div>`. Do not try to hide it via z-index or visibility — the chrome sits above slide content by design.
+
+### `docs/deck/` is gitignored — personal assets stay local
+**Date:** 2026-04-20
+**Type:** decision
+**Context:** The Pavilion GTM presentation deck contains a headshot, personal URLs, and brand assets. The repo is public.
+**Detail:** `docs/deck/` is in `.gitignore`. Never commit this directory. If the deck ever needs to be shared, do it as a file export — not via the public repo.
+
+---
+
+### `git filter-repo` removes origin remote automatically
+**Date:** 2026-04-20
+**Type:** gotcha
+**Context:** Removing committed session logs from public repo history using `git filter-repo`.
+**Detail:** `git filter-repo` intentionally removes the `origin` remote as a safety measure after rewriting history. Must re-add it manually (`git remote add origin <url>`) before force pushing.
+
+---
+
+### Sequence for scrubbing committed files from public repo history
+**Date:** 2026-04-20
+**Type:** pattern
+**Context:** Session logs were committed to the public repo and needed to be removed from history without deleting local files.
+**Detail:** Correct sequence: add path to `.gitignore` → `git rm -r --cached <path>` → commit → `git filter-repo --path <path> --invert-paths --force` → re-add origin → `git push --force origin main`. Files stay on disk throughout.
+
+---
+
+### GitHub retains loose objects ~90 days after force push
+**Date:** 2026-04-20
+**Type:** gotcha
+**Context:** After scrubbing session logs from repo history.
+**Detail:** GitHub doesn't immediately purge orphaned objects after a force push — they persist up to 90 days. For sensitive data requiring immediate removal, contact GitHub Support to request a cache purge.
+
+---
+
 ### Buffer action reads from merged PR body, not file frontmatter
 **Date:** 2026-04-15
 **Type:** decision / gotcha

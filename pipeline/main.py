@@ -42,7 +42,7 @@ load_dotenv(dotenv_path=env_local if os.path.exists(env_local) else env_file)
 from .config_loader import load_config
 from .discovery import discover, mark_processed
 from .drafter import draft_take
-from .publisher import create_pr
+from .publisher import create_pr, create_manifest_pr
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -274,6 +274,17 @@ def main():
         else:
             log.error("  Failed to create PR for: %s", draft["slug"])
 
+    # ─── Step 4: Manifest PR (HTML output only) ──────────────────────────
+    manifest_url = None
+    output_format = config.get("drafting", {}).get("output_format", "mdx")
+    if output_format == "html" and drafts:
+        log.info("Step 4: Creating manifest PR (posts.json)")
+        manifest_url = create_manifest_pr(drafts, config, site_repo_path)
+        if manifest_url:
+            log.info("  Manifest PR: %s", manifest_url)
+        else:
+            log.warning("  Manifest PR not created — posts.json will need manual update")
+
     mark_processed(processed_urls)
 
     # ─── Summary ─────────────────────────────────────────────────────────
@@ -283,9 +294,12 @@ def main():
     log.info("  Drafts produced:  %d", len(drafts))
     log.info("  PRs created:      %d", len(pr_urls))
     if pr_urls:
-        log.info("  PR URLs:")
+        log.info("  Article PRs (merge these first, in any order):")
         for url in pr_urls:
             log.info("    %s", url)
+    if manifest_url:
+        log.info("  Manifest PR (merge this last):")
+        log.info("    %s", manifest_url)
     log.info("=" * 60)
 
 

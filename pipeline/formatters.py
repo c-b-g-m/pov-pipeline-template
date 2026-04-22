@@ -1,16 +1,400 @@
 """
 Output formatters — build the final content file from draft data.
 
-Supports MDX and Markdown output formats. The format is selected
+Supports MDX, Markdown, and HTML output formats. The format is selected
 via config.yaml: drafting.output_format
 """
 
+import html as _html_lib
+import json
 import logging
-from datetime import datetime
+import re
 from typing import Callable
 
 log = logging.getLogger(__name__)
 
+# ─── Markdown → HTML ─────────────────────────────────────────────────────────
+
+def _apply_inline(text: str) -> str:
+    """Apply inline markdown: links, bold, italic."""
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)',
+                  r'<a href="\2" target="_blank" rel="noopener">\1</a>', text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
+    return text
+
+
+def _md_to_html(text: str) -> str:
+    """Convert simple markdown (headings, bold, links, paragraphs, lists) to HTML."""
+    blocks = re.split(r'\n{2,}', text.strip())
+    parts = []
+
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+
+        if block.startswith('## '):
+            parts.append(f'<h2>{_apply_inline(block[3:].strip())}</h2>')
+        elif block.startswith('### '):
+            parts.append(f'<h3>{_apply_inline(block[4:].strip())}</h3>')
+        elif re.match(r'^[-*] ', block):
+            lines = block.split('\n')
+            items = []
+            for line in lines:
+                line = line.strip()
+                if re.match(r'^[-*] ', line):
+                    items.append(f'<li>{_apply_inline(line[2:])}</li>')
+            parts.append('<ul>\n' + '\n'.join(items) + '\n</ul>')
+        else:
+            para = _apply_inline(block.replace('\n', ' '))
+            parts.append(f'<p>{para}</p>')
+
+    return '\n'.join(parts)
+
+
+# ─── HTML formatter ───────────────────────────────────────────────────────────
+
+_POSTHOG = (
+    '  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],'
+    'e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&'
+    '(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.'
+    'call(arguments,0)))}}'
+    '(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",'
+    'p.async=!0,p.src=s.api_host+"/static/array.js",'
+    '(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);'
+    'var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],'
+    'u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),'
+    't||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)'
+    '+".people (stub)"},o="capture identify alias people.set people.set_once '
+    'set_config register register_once unregister opt_out_capturing '
+    'has_opted_out_capturing opt_in_capturing reset isFeatureEnabled '
+    'onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags '
+    'group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures '
+    'getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".'
+    'split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}'
+    '(document,window.posthog||(window.posthog=[]));\n'
+    "  posthog.init('POSTHOG_KEY_REMOVED', "
+    "{api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only'})"
+)
+
+_FAVICON = (
+    "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+    "<defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'>"
+    "<stop offset='0%25' style='stop-color:%23A07AFF'/>"
+    "<stop offset='100%25' style='stop-color:%2300DCB4'/></linearGradient></defs>"
+    "<polygon points='18,2 6,18 14,18 13,30 26,14 18,14' fill='url(%23g)'/></svg>"
+)
+
+
+def _get_theme_label(theme_slug: str, config: dict) -> str:
+    for t in config.get("themes", []):
+        if t["slug"] == theme_slug:
+            return t.get("label", theme_slug)
+    return theme_slug
+
+
+def format_html(draft_data: dict, config: dict) -> tuple:
+    """Format draft as a full HTML page for a static site. Returns (content, filename)."""
+    meta = draft_data["metadata"]
+    site = config.get("site", {})
+
+    slug = draft_data["slug"]
+    domain = site.get("domain", "demandai.studio")
+    url = f"https://{domain}/pov/{slug}/"
+
+    title_safe = _html_lib.escape(meta["title"])
+    desc_safe = _html_lib.escape(meta["description"])
+    theme_label = _get_theme_label(meta["theme"], config)
+    publish_date = meta.get("publish_date", "")
+    source_url = meta.get("source_url", "")
+    source_title = _html_lib.escape(meta.get("title", source_url))
+    tags = meta.get("tags", [])
+
+    body_html = _md_to_html(draft_data["site_draft"])
+
+    # ── JSON-LD ──
+    ld_article = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": meta["title"],
+        "description": meta["description"],
+        "datePublished": publish_date,
+        "author": {
+            "@type": "Organization",
+            "name": "demand AI studio",
+            "url": f"https://{domain}"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "demand AI studio",
+            "url": f"https://{domain}"
+        },
+        "url": url,
+        "keywords": ", ".join(tags),
+    }, indent=2)
+
+    ld_breadcrumb = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": f"https://{domain}/"},
+            {"@type": "ListItem", "position": 2, "name": "POV", "item": f"https://{domain}/pov/"},
+            {"@type": "ListItem", "position": 3, "name": meta["title"], "item": url},
+        ]
+    }, indent=2)
+
+    # ── CSS ──
+    styles = """
+<style>
+.pov-header {
+  position: relative;
+  z-index: 10;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 72px 56px 40px;
+}
+.pov-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.pov-theme {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal-dim);
+  border: 1px solid rgba(0,220,180,0.25);
+  padding: 4px 10px;
+}
+.pov-date {
+  font-size: 13px;
+  color: var(--muted);
+}
+h1.pov-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 300;
+  font-variation-settings: 'opsz' 144;
+  letter-spacing: -0.02em;
+  color: var(--cream);
+  line-height: 1.15;
+  margin-bottom: 20px;
+}
+.pov-description {
+  font-size: 17px;
+  color: var(--cream-dim);
+  line-height: 1.7;
+  margin-bottom: 24px;
+  max-width: 600px;
+}
+.pov-source {
+  font-size: 13px;
+  color: var(--muted);
+}
+.pov-source a {
+  color: var(--teal-dim);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0,220,180,0.3);
+  transition: color 0.2s, border-color 0.2s;
+}
+.pov-source a:hover {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+.pov-body {
+  position: relative;
+  z-index: 10;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 56px 80px;
+}
+.pov-body h2 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--violet-dim);
+  margin: 48px 0 16px;
+  padding-top: 48px;
+  border-top: 1px solid var(--border-2);
+}
+.pov-body h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.pov-body h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 600;
+  font-variation-settings: 'opsz' 36;
+  color: var(--cream);
+  margin: 24px 0 12px;
+}
+.pov-body p {
+  font-size: 16px;
+  color: var(--cream-dim);
+  line-height: 1.85;
+  margin-bottom: 20px;
+}
+.pov-body strong {
+  color: var(--cream);
+  font-weight: 500;
+}
+.pov-body a {
+  color: var(--teal-dim);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0,220,180,0.3);
+  transition: color 0.2s, border-color 0.2s;
+}
+.pov-body a:hover { color: var(--teal); border-bottom-color: var(--teal); }
+.pov-body ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 20px;
+}
+.pov-body ul li {
+  font-size: 16px;
+  color: var(--cream-dim);
+  line-height: 1.85;
+  padding-left: 24px;
+  position: relative;
+  margin-bottom: 8px;
+}
+.pov-body ul li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--violet-dim);
+}
+@media (max-width: 768px) {
+  .pov-header, .pov-body { padding-left: 24px; padding-right: 24px; }
+  h1.pov-title { font-size: clamp(26px, 7vw, 42px); }
+}
+</style>"""
+
+    html_out = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title_safe} — demand AI studio</title>
+<meta name="description" content="{desc_safe}">
+<link rel="canonical" href="{url}">
+
+<meta property="og:type" content="article">
+<meta property="og:url" content="{url}">
+<meta property="og:title" content="{title_safe} — demand AI studio">
+<meta property="og:description" content="{desc_safe}">
+<meta property="og:image" content="https://{domain}/og-images/og-pov-default.png">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{title_safe} — demand AI studio">
+<meta name="twitter:description" content="{desc_safe}">
+<meta name="twitter:image" content="https://{domain}/og-images/og-pov-default.png">
+
+<link rel="icon" href="{_FAVICON}">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,500;1,9..144,600&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/shared.css">
+{styles}
+<script type="application/ld+json">
+{ld_breadcrumb}
+</script>
+<script type="application/ld+json">
+{ld_article}
+</script>
+<script>
+{_POSTHOG}
+</script>
+<script>
+  document.addEventListener('click', function(e) {{
+    var link = e.target.closest('a[href*="onecal.io"]');
+    if (link) posthog.capture('booking_cta_clicked', {{ page: window.location.pathname }});
+  }});
+</script>
+</head>
+<body>
+
+<!-- Aurora Background -->
+<div id="aurora-wrap">
+  <div class="a-layer a1"></div>
+  <div class="a-layer a2"></div>
+  <div class="a-layer a3"></div>
+  <div class="a-arc"></div>
+</div>
+
+<!-- Nav -->
+<div class="nav-bar">
+  <a href="https://{domain}" class="nav-logo">Demand AI<em>.</em>Studio</a>
+  <a href="/pov" class="nav-back">&larr; All takes</a>
+</div>
+
+<!-- Article Header -->
+<header class="pov-header">
+  <div class="pov-eyebrow">
+    <span class="pov-theme">{theme_label}</span>
+    <span class="pov-date">{publish_date}</span>
+  </div>
+  <h1 class="pov-title">{title_safe}</h1>
+  <p class="pov-description">{desc_safe}</p>
+  <p class="pov-source">Source: <a href="{source_url}" target="_blank" rel="noopener">{source_title}</a></p>
+</header>
+
+<!-- Article Body -->
+<article class="pov-body">
+{body_html}
+</article>
+
+<!-- Services CTA -->
+<section class="services-cta">
+  <div class="services-cta-card">
+    <h3>Want to build this capability for your team?</h3>
+    <p>If you want automations like this running inside your GTM stack — not just a template but a working system — book a call and we'll scope it together.</p>
+    <a href="https://app.onecal.io/b/christen-george/demand-ai-studio" class="services-cta-link" target="_blank">Book a Discovery Call</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    &copy; 2026 <a href="https://{domain}">Demand AI Studio</a>
+  </div>
+  <div>
+    <a href="https://{domain}">demandai.studio</a>
+  </div>
+</footer>
+
+</body>
+</html>"""
+
+    filename = f"{slug}/index.html"
+    return html_out, filename
+
+
+# ─── Posts manifest helper ────────────────────────────────────────────────────
+
+def build_posts_entry(draft_data: dict) -> dict:
+    """Build a posts.json entry from draft data."""
+    meta = draft_data["metadata"]
+    return {
+        "slug": draft_data["slug"],
+        "title": meta["title"],
+        "description": meta["description"],
+        "theme": meta["theme"],
+        "tags": meta.get("tags", []),
+        "publishDate": meta.get("publish_date", ""),
+    }
+
+
+# ─── MDX / Markdown formatters ────────────────────────────────────────────────
 
 def format_mdx(draft_data: dict, config: dict) -> tuple:
     """Format draft as MDX with YAML frontmatter. Returns (content, filename)."""
@@ -27,7 +411,6 @@ def format_markdown(draft_data: dict, config: dict) -> tuple:
 
 
 def _build_content(draft_data: dict) -> str:
-    """Build the file content with frontmatter and body."""
     meta = draft_data["metadata"]
 
     safe_title = meta["title"].replace('"', '\\"')
@@ -39,7 +422,7 @@ def _build_content(draft_data: dict) -> str:
 
     tags_str = ", ".join(f'"{t}"' for t in meta.get("tags", []))
 
-    content = f'''---
+    return f'''---
 title: "{safe_title}"
 description: "{safe_description}"
 sourceUrl: "{meta['source_url']}"
@@ -53,12 +436,15 @@ linkedInDraft: "{linkedin_escaped}"
 
 {draft_data['site_draft']}
 '''
-    return content
 
+
+# ─── Formatter registry ───────────────────────────────────────────────────────
 
 def get_formatter(config: dict) -> Callable:
     """Return the appropriate formatter function based on config."""
     fmt = config.get("drafting", {}).get("output_format", "mdx")
     if fmt == "markdown":
         return format_markdown
+    if fmt == "html":
+        return format_html
     return format_mdx

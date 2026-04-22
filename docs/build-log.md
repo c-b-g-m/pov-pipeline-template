@@ -2,13 +2,19 @@
 
 ## Open bugs
 
-### URL state management — articles silently lost on partial-success runs
+None.
 
-**File:** `pipeline/discovery.py`
-**Severity:** Medium
-**Symptom:** If a pipeline run discovers 3 articles and PR creation succeeds for articles 1 and 2 but fails for article 3, article 3's URL is still written to `state/processed_urls.json` during the drafting phase. On the next run, the pipeline skips it — the article is never retried and never published.
-**Root cause:** `processed_urls.json` is updated after drafting, not after successful PR creation. The state write and the publish step are decoupled.
-**Fix needed:** Move the state write to after `create_pr()` returns a non-None URL. `main.py` orchestrates both steps and is the right place to make this change.
+---
+
+## 2026-04-22: Fix URL state management bug
+
+**What was built:**
+- `pipeline/main.py`: replaced parallel `drafts` + `processed_urls` lists with `drafts_with_urls` (paired tuples). PR creation loop now collects `published_urls` only on `create_pr()` success. `mark_processed()` called with `published_urls` instead of all drafted URLs — failed PRs are retried on the next run.
+- `tests/test_main.py`: 5 new tests covering partial PR failure, full success, all-fail, dry-run (no `create_pr` called), and no-drafts-produced.
+
+**What broke:** Nothing. 91/91 tests passing.
+
+**Tech debt:** None introduced.
 
 ---
 
@@ -136,10 +142,10 @@
 **What broke:** Nothing. All 27 tests pass. `config.example.yaml` validates end-to-end through the real loader.
 
 **Tech debt (flagged during audit, deferred to future PRs):**
-- **URL state management** (`pipeline/discovery.py`): partial-success GitHub Actions runs mark URLs processed even if PR creation failed, so articles get lost or duplicated unpredictably. Should mark URLs processed only after successful publish, not after drafting. Architectural, not a doc fix.
-- **Frontmatter YAML injection** (`pipeline/formatters.py:33-38`): generates frontmatter via string interpolation with ad-hoc escaping. Titles or descriptions containing YAML special chars (colons, backticks, triple quotes) could break downstream parsing. Real latent bug. Fix: use a proper YAML library for frontmatter emission.
-- **Branch name collision** (`pipeline/publisher.py:58`): branches are `{prefix}/{date}-{slug}`. Two articles with the same title on the same day would collide and the second `git branch` call would fail. Edge case but real. Fix: append a counter suffix on collision.
-- **`firecrawl-py` unconditional install** (`requirements.txt:3`): heavyweight dependency listed even though it's only used when `FIRECRAWL_API_KEY` is set. Fix: move to an optional extras group or add an inline comment.
+- ~~**URL state management**~~ — Fixed 2026-04-22: `mark_processed()` now called only after successful `create_pr()`.
+- ~~**Frontmatter YAML injection**~~ — Fixed 2026-04-21: `formatters.py` rewrite switched to `yaml.dump()`.
+- ~~**Branch name collision**~~ — Fixed 2026-04-21: collision loop added to `publisher.py`.
+- ~~**`firecrawl-py` unconditional install**~~ — Resolved 2026-04-22: inline comment added to `requirements.txt`.
 
 **False positives from audit (verified and rejected):**
 - Agent flagged `README.md:46` (`cp env.example .env`) as referencing a nonexistent file. Verified: the file is literally named `env.example` (no dot) and the README matches. Not a bug. Renaming to `.env.example` for convention is cosmetic only.

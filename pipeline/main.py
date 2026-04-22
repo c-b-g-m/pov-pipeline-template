@@ -233,49 +233,49 @@ def main():
 
     # ─── Step 2: Drafting ────────────────────────────────────────────────
     log.info("Step 2: Drafting via Claude API")
-    drafts = []
-    processed_urls = []
+    drafts_with_urls = []  # [(draft_dict, source_url), ...]
 
     for candidate in candidates:
         draft = draft_take(candidate, config, anthropic_key, firecrawl_key)
         if draft:
-            drafts.append(draft)
-            processed_urls.append(candidate["url"])
+            drafts_with_urls.append((draft, candidate["url"]))
             log.info("  Drafted: %s", draft["slug"])
         else:
             log.warning("  Failed to draft: %s", candidate["title"][:60])
 
         time.sleep(rate_limit)
 
-    if not drafts:
+    if not drafts_with_urls:
         log.info("No drafts produced. Nothing to publish.")
-        mark_processed(processed_urls)
         return
 
-    log.info("Produced %d drafts", len(drafts))
+    log.info("Produced %d drafts", len(drafts_with_urls))
 
     if args.dry_run:
         log.info("[DRY RUN] Drafts produced but not published.")
-        for d in drafts:
-            log.info("  - %s (%s)", d["slug"], d["metadata"]["theme"])
-            log.info("    Description: %s", d["metadata"]["description"][:100])
-        mark_processed(processed_urls)
+        for draft, _ in drafts_with_urls:
+            log.info("  - %s (%s)", draft["slug"], draft["metadata"]["theme"])
+            log.info("    Description: %s", draft["metadata"]["description"][:100])
+        mark_processed([url for _, url in drafts_with_urls])
         return
 
     # ─── Step 3: Create PRs ──────────────────────────────────────────────
     log.info("Step 3: Creating GitHub PRs")
     pr_urls = []
+    published_urls = []
 
-    for draft in drafts:
+    for draft, source_url in drafts_with_urls:
         pr_url = create_pr(draft, config, site_repo_path)
         if pr_url:
             pr_urls.append(pr_url)
+            published_urls.append(source_url)
             log.info("  PR created: %s", pr_url)
         else:
-            log.error("  Failed to create PR for: %s", draft["slug"])
+            log.error("  Failed to create PR for: %s — will retry on next run", draft["slug"])
 
     # ─── Step 4: Manifest PR (HTML output only) ──────────────────────────
     manifest_url = None
+    drafts = [draft for draft, _ in drafts_with_urls]
     output_format = config.get("drafting", {}).get("output_format", "mdx")
     if output_format == "html" and drafts:
         log.info("Step 4: Creating manifest PR (posts.json)")
@@ -285,13 +285,13 @@ def main():
         else:
             log.warning("  Manifest PR not created — posts.json will need manual update")
 
-    mark_processed(processed_urls)
+    mark_processed(published_urls)
 
     # ─── Summary ─────────────────────────────────────────────────────────
     log.info("=" * 60)
     log.info("Pipeline complete")
     log.info("  Candidates found: %d", len(candidates))
-    log.info("  Drafts produced:  %d", len(drafts))
+    log.info("  Drafts produced:  %d", len(drafts_with_urls))
     log.info("  PRs created:      %d", len(pr_urls))
     if pr_urls:
         log.info("  Article PRs (merge these first, in any order):")

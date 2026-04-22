@@ -199,3 +199,27 @@
 **Type:** pattern
 **Context:** Writing tests for buffer_client.py, which makes HTTP calls via urllib.
 **Detail:** All HTTP in buffer_client flows through `_graphql`. Patching `pipeline.buffer_client._graphql` directly avoids dealing with request/response byte encoding and keeps tests readable. Don't go lower.
+
+---
+
+### Stale tech debt in build log sent us down a resolved path
+**Date:** 2026-04-22
+**Type:** gotcha
+**Context:** Reviewing the open tech debt list before starting work on YAML injection, branch collision, and firecrawl.
+**Detail:** All three items were already fixed in April 21–22 sessions but the April 10 build log entry was never updated. Strike through tech debt entries in the original build log entry at the time of fix, not just in the session that introduced them.
+
+---
+
+### Paired tuples over parallel lists for draft-to-URL tracking in the orchestrator
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Fixing URL state management — `processed_urls` was a separate list populated at draft time, decoupled from PR outcomes.
+**Detail:** Replaced `drafts = []` + `processed_urls = []` with `drafts_with_urls = [(draft, source_url), ...]`. Keeps each draft bound to its source URL through the PR loop so `mark_processed()` can be called only on successes. Parallel lists diverge silently; paired tuples make the relationship explicit and harder to break.
+
+---
+
+### Testing `main()` requires `tmp_path` for SITE_REPO_PATH
+**Date:** 2026-04-22
+**Type:** gotcha
+**Context:** Writing `tests/test_main.py` — first attempt used a fake string path and failed on the `os.path.isdir()` guard.
+**Detail:** `main()` validates that `SITE_REPO_PATH` is a real directory before reaching the code under test. Passing a non-existent fake path causes `sys.exit(1)` before the test logic runs. Fix: use pytest's `tmp_path` fixture and `monkeypatch.setenv("SITE_REPO_PATH", str(tmp_path))` — creates a real directory with no side effects.

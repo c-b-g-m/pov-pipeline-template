@@ -6,6 +6,20 @@ None.
 
 ---
 
+## 2026-04-22: README onboarding polish
+
+**What was built:**
+- Added "New here?" action-first one-liner above the pipeline diagram — first thing a cold visitor reads
+- Added minimum-required table to Quick Start Step 3: five blocking fields, everything else explicitly optional
+- Added `site.content_path` must-exist blockquote callout at point of use (Step 3), not just in Prerequisites
+- Added `--validate` output description: `[OK]` vs `[FAIL]` pattern so first-timers know what success looks like
+
+**What broke:** Nothing. README-only change.
+
+**Tech debt:** None introduced.
+
+---
+
 ## 2026-04-22: Fix URL state management bug
 
 **What was built:**

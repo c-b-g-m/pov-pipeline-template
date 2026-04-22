@@ -194,6 +194,30 @@
 
 ---
 
+### Action-first one-liner above the fold for README onboarding
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Evaluating whether the public repo's README gave cold visitors an obvious entry point.
+**Detail:** Put a single "New here? → do X" line immediately after the tagline, before any diagrams or context sections. Cold visitors scan for action before they read. A one-liner that links directly to the Quick Start anchor catches them before the architecture diagram does.
+
+---
+
+### Minimum-required table in Quick Start config steps
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Step 3 of Quick Start said "fill in your own values" with no guidance on what was blocking vs. optional.
+**Detail:** When a setup step involves a multi-field config file, add a small table listing the minimum fields required to proceed. Label everything else optional. "Fill in your own values" produces analysis paralysis; a five-row table with required fields named explicitly does not.
+
+---
+
+### Repeat blockers at the point of use, not just in prerequisites
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** `site.content_path` must-exist requirement was in Prerequisites but not in Step 3 where users actually encounter it.
+**Detail:** A prerequisite mentioned once at the top is often forgotten by the time the user hits the relevant step. For any hard blocker (directory must exist, token must have scope X), repeat it as a callout at the exact step where it will bite them — not just in the prerequisites list.
+
+---
+
 ### Patch _graphql directly for buffer_client tests, not urlopen
 **Date:** 2026-04-22
 **Type:** pattern

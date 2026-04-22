@@ -5,6 +5,8 @@ An automated content pipeline that discovers industry news, drafts opinionated t
 **You provide:** your identity, your industry, your RSS feeds, your editorial voice.
 **The pipeline handles:** scanning for articles, drafting takes, and opening PRs for review.
 
+**New here?** Fork this repo → follow [Quick Start](#quick-start) → run `--validate` before anything else.
+
 ```
 RSS Feeds + Brave Search (optional)
         |
@@ -70,6 +72,20 @@ Then edit:
 - **`voice-guidelines.md`** — your editorial voice, tone, structure, and constraints
 - **`.env.local`** — your API keys and site repo path
 
+**Minimum required to get through `--validate`:**
+
+| What | Where |
+|---|---|
+| `author.name`, `author.role`, `author.specialization` | `config.yaml` |
+| `site.domain`, `site.content_path` | `config.yaml` |
+| At least one RSS feed under `discovery.rss_feeds` | `config.yaml` |
+| `ANTHROPIC_API_KEY` | `.env.local` |
+| `SITE_REPO_PATH` | `.env.local` |
+
+Everything else (`audience`, `first_principles`, `themes`, `brave_queries`, Buffer) is optional — add it once the pipeline is running.
+
+> **Important:** The directory you set as `site.content_path` (e.g. `src/content/pov`) must already exist in your site repo before you run the pipeline. Create it and commit it if it doesn't.
+
 ### 4. Pre-flight check
 
 Before your first real run, verify your config, env vars, and prerequisites:
@@ -79,6 +95,8 @@ python3 -m pipeline.main --validate
 ```
 
 This checks that `config.yaml` loads, `ANTHROPIC_API_KEY` is set, `voice-guidelines.md` exists, `SITE_REPO_PATH` points at a real directory containing your `site.content_path`, and the `gh` CLI is authenticated. No API calls are made. Fix any reported issues before moving on.
+
+A passing run prints `[OK]` for each check. Any `[FAIL]` line includes a message telling you what to fix.
 
 ### 5. Run
 

@@ -53,6 +53,8 @@ source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+> Contributing or running tests? Use `pip install -r requirements-dev.txt` instead — it includes pytest.
+
 ### 3. Configure
 
 Copy the example files and fill in your own values:

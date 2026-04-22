@@ -1,5 +1,33 @@
 # Build Log — pov-pipeline-template
 
+## Open bugs
+
+### URL state management — articles silently lost on partial-success runs
+
+**File:** `pipeline/discovery.py`
+**Severity:** Medium
+**Symptom:** If a pipeline run discovers 3 articles and PR creation succeeds for articles 1 and 2 but fails for article 3, article 3's URL is still written to `state/processed_urls.json` during the drafting phase. On the next run, the pipeline skips it — the article is never retried and never published.
+**Root cause:** `processed_urls.json` is updated after drafting, not after successful PR creation. The state write and the publish step are decoupled.
+**Fix needed:** Move the state write to after `create_pr()` returns a non-None URL. `main.py` orchestrates both steps and is the right place to make this change.
+
+---
+
+## 2026-04-22: Repo hardening and test coverage
+
+**What was built:**
+- Fork-readiness audit: 7 bugs and documentation gaps fixed (Social Draft naming, dead config fields, hardcoded copyright year, og_image README note, .env.local preference, state/.gitkeep, internal references scrubbed from docs)
+- Test coverage added for `formatters.py`, `publisher.py`, and `buffer_client.py` — 47 new tests, 86 total passing
+- LICENSE copyright attributed to demandAI studio
+- `requirements.txt` split into runtime and dev (`requirements-dev.txt`)
+- `CONTRIBUTING.md` added
+
+**What broke:** Nothing.
+
+**Tech debt:**
+- URL state management bug (see Open bugs above) — deferred, architectural change needed in `main.py`
+
+---
+
 ## 2026-04-21: Template Bug Fixes (public template hardening)
 
 **What was built:**

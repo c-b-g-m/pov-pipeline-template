@@ -159,3 +159,43 @@
 **Type:** decision
 **Context:** The `format_html()` function was built for an early implementation and never generalized before open-sourcing.
 **Detail:** Every identity string — site name, author name, OG tags, nav logo, footer, CTA copy and URL, analytics keys — must come from config or be absent. Any hardcoded value makes the formatter unusable for any other user. The CTA section pattern (omit `site.cta` from config entirely to suppress the HTML block) is the right model for optional sections.
+
+---
+
+### Heading consistency between publisher and Buffer workflow regex is load-bearing
+**Date:** 2026-04-22
+**Type:** gotcha
+**Context:** Auditing the Buffer integration during fork-readiness review.
+**Detail:** `publisher.py` wrote `### LinkedIn Draft`; the workflow regex looked for `### Social Draft`. Buffer silently skipped every post with no error. Any heading in a PR body template that's matched by a downstream regex is a coupled contract — treat it that way.
+
+---
+
+### Tracked ops docs expose internal names on public repos
+**Date:** 2026-04-22
+**Type:** gotcha
+**Context:** Fork-readiness audit found client and internal project names in build-log.md and knowledge-base.md.
+**Detail:** Both files were git-tracked and contained internal project names and client domains. For a public repo, ops docs need to be scrubbed or gitignored before going wide. `docs/sessions/` was correctly gitignored; the broader docs/ directory was not.
+
+---
+
+### Dead config fields in example configs create false user expectations
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Removing `url_pattern` and `target_repo` from config.example.yaml.
+**Detail:** Config fields that exist in the example but are never read by code cause real confusion. Either implement the field or remove it. A field with a real-looking value and no effect is a trap for new users.
+
+---
+
+### Use a queue class to mock sequential subprocess calls in publisher tests
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Writing tests for publisher.py, which makes multiple sequential git calls.
+**Detail:** A `_RunQueue` class that pops `(returncode, stdout, stderr)` tuples in order — defaulting to `(0, "", "")` for extras — is cleaner than a dict keyed on command prefix. Git makes multiple calls with the same subcommand (e.g., two `git checkout` calls), so command-keyed dicts break down.
+
+---
+
+### Patch _graphql directly for buffer_client tests, not urlopen
+**Date:** 2026-04-22
+**Type:** pattern
+**Context:** Writing tests for buffer_client.py, which makes HTTP calls via urllib.
+**Detail:** All HTTP in buffer_client flows through `_graphql`. Patching `pipeline.buffer_client._graphql` directly avoids dealing with request/response byte encoding and keeps tests readable. Don't go lower.

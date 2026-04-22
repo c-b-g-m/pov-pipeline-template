@@ -96,7 +96,7 @@ python3 -m pipeline.main --validate
 
 This checks that `config.yaml` loads, `ANTHROPIC_API_KEY` is set, `voice-guidelines.md` exists, `SITE_REPO_PATH` points at a real directory containing your `site.content_path`, and the `gh` CLI is authenticated. No API calls are made. Fix any reported issues before moving on.
 
-A passing run prints `[OK]` for each check. Any `[FAIL]` line includes a message telling you what to fix.
+A passing run prints `OK — config, environment, and prerequisites all look good.` A failed run prints `FAILED —` followed by a list of issues to fix.
 
 ### 5. Run
 

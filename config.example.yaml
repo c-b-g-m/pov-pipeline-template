@@ -17,11 +17,24 @@ author:
   specialization: "climate tech and clean energy"
 
 site:
+  name: "Jordan Rivera"                  # Display name used in page titles, nav, and footer.
   domain: "jordanrivera.dev"
   content_path: "src/content/pov"       # Path within your site repo where content files go.
                                         # This directory MUST exist in the target site repo
                                         # before you run the pipeline.
   url_pattern: "/pov/{slug}/"           # How URLs are formed on your site
+
+  # OG image — site-relative path or absolute URL. You must provide this file.
+  # Delete this line to use the default: /og-images/og-pov-default.png
+  og_image: "/og-images/og-pov-default.png"
+
+  # CTA block rendered below each article (HTML output only).
+  # Delete this entire block to suppress the section.
+  cta:
+    heading: "Want to build this for your team?"
+    body: "Your custom call-to-action copy goes here."
+    link_url: "https://yoursite.com/contact"
+    link_text: "Get in touch"
 
 # ─── Audience ───────────────────────────────────────────────────────────────
 # Who you're writing FOR. One audience per pipeline — the model calibrates
@@ -70,15 +83,29 @@ discovery:
   max_article_age_hours: 72             # Ignore articles older than this
   max_candidates: 5                     # Max articles to process per run
 
-  # RSS feeds to scan. Set needs_keyword_filter: true for broad feeds
-  # (like PR wires) that need filtering by your industry keywords.
+  # RSS feeds to scan.
+  #
+  # needs_keyword_filter: true  — filter broad feeds (PR wires, aggregators) by
+  #                               industry_keywords before adding to candidates.
+  # priority: 1                 — rank order when multiple feeds compete for the
+  #                               max_candidates slots. Lower = higher priority.
+  #                               Defaults to 1 if omitted.
+  # max_per_feed: 3             — cap how many articles this feed can contribute
+  #                               per run. Omit for no cap.
+  #
+  # Note: Reddit blocks RSS scraping at the platform level. Do not add Reddit
+  # feeds — they return empty results silently.
   rss_feeds:
     - url: "https://www.canarymedia.com/feed"
       needs_keyword_filter: false
+      priority: 1
     - url: "https://techcrunch.com/category/climate/feed"
       needs_keyword_filter: false
+      priority: 2
+      max_per_feed: 3
     - url: "https://www.globenewswire.com/RssFeed/industry/Energy"
       needs_keyword_filter: true
+      priority: 3
 
   # Brave Web Search queries.
   # REQUIRES: BRAVE_SEARCH_API_KEY environment variable + an active Brave Search
@@ -158,7 +185,10 @@ themes:
 drafting:
   model: "claude-sonnet-4-6"            # Claude model to use
   max_tokens: 2000                      # Max tokens per draft
-  output_format: "mdx"                  # "mdx" or "markdown"
+  output_format: "mdx"                  # "mdx", "markdown", or "html"
+                                        # html: self-contained pages for static sites
+                                        #       (requires site.name, site.domain,
+                                        #        and /shared.css in your site repo)
 
   # Content structure: the h2 sections that make up each take.
   # Customize headings and instructions to match your editorial style.

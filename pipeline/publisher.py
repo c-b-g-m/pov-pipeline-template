@@ -64,7 +64,8 @@ def create_pr(draft: dict, config: dict, repo_path: str, dry_run: bool = False) 
         return None
 
     today = datetime.now(tz).strftime("%Y-%m-%d")
-    branch_name = f"{branch_prefix}/{today}-{draft['slug']}"
+    base_branch_name = f"{branch_prefix}/{today}-{draft['slug']}"
+    branch_name = base_branch_name
     file_path = os.path.join(content_dir, draft["filename"])
     relative_path = os.path.join(content_path, draft["filename"])
 
@@ -76,13 +77,19 @@ def create_pr(draft: dict, config: dict, repo_path: str, dry_run: bool = False) 
 
     _run(["git", "pull", "origin", base_branch], cwd=repo_path)
 
+    # Resolve branch name collision (same slug, same day)
+    suffix = 2
+    while _run(["git", "branch", "--list", branch_name], cwd=repo_path).stdout.strip():
+        branch_name = f"{base_branch_name}-{suffix}"
+        suffix += 1
+    if branch_name != base_branch_name:
+        log.warning("Branch %s already exists, using %s", base_branch_name, branch_name)
+
     # Create and checkout new branch
     result = _run(["git", "checkout", "-b", branch_name], cwd=repo_path)
     if result.returncode != 0:
         log.error("Failed to create branch %s", branch_name)
-        result = _run(["git", "checkout", branch_name], cwd=repo_path)
-        if result.returncode != 0:
-            return None
+        return None
 
     # Write article file only (create parent dirs for slug/index.html structure)
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -107,13 +114,21 @@ def create_pr(draft: dict, config: dict, repo_path: str, dry_run: bool = False) 
     result = _run(["git", "commit", "-m", commit_msg], cwd=repo_path)
     if result.returncode != 0:
         log.error("Failed to commit")
+        _run(["git", "restore", "--staged", relative_path], cwd=repo_path)
         _run(["git", "checkout", base_branch], cwd=repo_path)
+        _run(["git", "branch", "-D", branch_name], cwd=repo_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            parent = os.path.dirname(file_path)
+            if os.path.isdir(parent) and not os.listdir(parent):
+                os.rmdir(parent)
         return None
 
     result = _run(["git", "push", "-u", "origin", branch_name], cwd=repo_path)
     if result.returncode != 0:
         log.error("Failed to push branch %s", branch_name)
         _run(["git", "checkout", base_branch], cwd=repo_path)
+        _run(["git", "branch", "-D", branch_name], cwd=repo_path)
         return None
 
     meta = draft["metadata"]

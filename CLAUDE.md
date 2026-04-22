@@ -31,6 +31,6 @@ pytest tests/ -v                         # Run tests
 - **Industry-agnostic:** Zero hardcoded industry content. Everything comes from user config.
 - **Config-driven:** Single `config.yaml` + `voice-guidelines.md` define all behavior.
 - **GitHub PRs as editorial gate:** Human reviews every draft before it goes live.
-- **Output format pluggable:** MDX or Markdown via config flag.
+- **Output format pluggable:** MDX, Markdown, or HTML via config flag (`drafting.output_format`).
 - **One author, one audience, one site per instance.** Multi-audience or multi-persona setups use multiple clones of this repo, not multiple entries in one config. Mixing audiences produces averaged, edgeless takes. See README's "Running multiple pipelines" section.
 - **Fail loud, not silent.** Missing voice-guidelines.md exits with CRITICAL, not a warning. Theme fallbacks log. Brave queries without an API key log a startup warning. Silent degradation is unacceptable for a public template — users must know when something is off.

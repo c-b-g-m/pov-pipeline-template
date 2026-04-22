@@ -9,7 +9,9 @@ import html as _html_lib
 import json
 import logging
 import re
+import yaml
 from typing import Callable
+from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
@@ -55,29 +57,6 @@ def _md_to_html(text: str) -> str:
 
 # ─── HTML formatter ───────────────────────────────────────────────────────────
 
-_POSTHOG = (
-    '  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],'
-    'e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&'
-    '(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.'
-    'call(arguments,0)))}}'
-    '(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",'
-    'p.async=!0,p.src=s.api_host+"/static/array.js",'
-    '(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);'
-    'var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],'
-    'u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),'
-    't||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)'
-    '+".people (stub)"},o="capture identify alias people.set people.set_once '
-    'set_config register register_once unregister opt_out_capturing '
-    'has_opted_out_capturing opt_in_capturing reset isFeatureEnabled '
-    'onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags '
-    'group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures '
-    'getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".'
-    'split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}'
-    '(document,window.posthog||(window.posthog=[]));\n'
-    "  posthog.init('POSTHOG_KEY_REMOVED', "
-    "{api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only'})"
-)
-
 _FAVICON = (
     "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
     "<defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'>"
@@ -95,21 +74,47 @@ def _get_theme_label(theme_slug: str, config: dict) -> str:
 
 
 def format_html(draft_data: dict, config: dict) -> tuple:
-    """Format draft as a full HTML page for a static site. Returns (content, filename)."""
+    """Format draft as a full HTML page for a static site. Returns (content, filename).
+
+    Required config.yaml fields:
+      site.domain  — root domain without protocol, e.g. "mysite.com"
+      site.name    — display name used in page titles, nav, and footer
+
+    Optional config.yaml fields:
+      site.og_image      — OG image path (site-relative) or absolute URL.
+                           Defaults to /og-images/og-pov-default.png — you must
+                           provide this file in your site repo.
+      site.cta           — CTA block rendered below the article body. Omit the
+                           entire key to suppress the section.
+        site.cta.heading   — section heading text
+        site.cta.body      — paragraph copy
+        site.cta.link_url  — button destination URL
+        site.cta.link_text — button label
+
+    The template links /shared.css for CSS variables and base styles.
+    You must provide this stylesheet in your site repo's root.
+    """
     meta = draft_data["metadata"]
     site = config.get("site", {})
 
     slug = draft_data["slug"]
-    domain = site.get("domain", "demandai.studio")
+    domain = site.get("domain", "")
+    site_name = site.get("name", domain)
+    author_name = config.get("author", {}).get("name", site_name)
     url = f"https://{domain}/pov/{slug}/"
 
     title_safe = _html_lib.escape(meta["title"])
     desc_safe = _html_lib.escape(meta["description"])
+    site_name_safe = _html_lib.escape(site_name)
     theme_label = _get_theme_label(meta["theme"], config)
     publish_date = meta.get("publish_date", "")
     source_url = meta.get("source_url", "")
-    source_title = _html_lib.escape(meta.get("title", source_url))
+    source_host = urlparse(source_url).netloc.lstrip("www.") if source_url else ""
+    source_title = _html_lib.escape(source_host or source_url)
     tags = meta.get("tags", [])
+
+    og_image_path = site.get("og_image", "/og-images/og-pov-default.png")
+    og_image_url = og_image_path if og_image_path.startswith("http") else f"https://{domain}{og_image_path}"
 
     body_html = _md_to_html(draft_data["site_draft"])
 
@@ -122,16 +127,16 @@ def format_html(draft_data: dict, config: dict) -> tuple:
         "datePublished": publish_date,
         "author": {
             "@type": "Organization",
-            "name": "demand AI studio",
+            "name": author_name,
             "url": f"https://{domain}"
         },
         "publisher": {
             "@type": "Organization",
-            "name": "demand AI studio",
+            "name": author_name,
             "url": f"https://{domain}"
         },
         "url": url,
-        "keywords": ", ".join(tags),
+        "keywords": tags,
     }, indent=2)
 
     ld_breadcrumb = json.dumps({
@@ -278,25 +283,40 @@ h1.pov-title {
 }
 </style>"""
 
+    # ── Optional CTA block (omit site.cta from config to suppress) ──
+    cta = site.get("cta", {})
+    if cta:
+        cta_html = f"""
+<!-- CTA -->
+<section class="services-cta">
+  <div class="services-cta-card">
+    <h3>{_html_lib.escape(cta.get("heading", ""))}</h3>
+    <p>{_html_lib.escape(cta.get("body", ""))}</p>
+    <a href="{cta.get("link_url", "#")}" class="services-cta-link" target="_blank">{_html_lib.escape(cta.get("link_text", "Get in touch"))}</a>
+  </div>
+</section>"""
+    else:
+        cta_html = ""
+
     html_out = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title_safe} — demand AI studio</title>
+<title>{title_safe} — {site_name_safe}</title>
 <meta name="description" content="{desc_safe}">
 <link rel="canonical" href="{url}">
 
 <meta property="og:type" content="article">
 <meta property="og:url" content="{url}">
-<meta property="og:title" content="{title_safe} — demand AI studio">
+<meta property="og:title" content="{title_safe} — {site_name_safe}">
 <meta property="og:description" content="{desc_safe}">
-<meta property="og:image" content="https://{domain}/og-images/og-pov-default.png">
+<meta property="og:image" content="{og_image_url}">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{title_safe} — demand AI studio">
+<meta name="twitter:title" content="{title_safe} — {site_name_safe}">
 <meta name="twitter:description" content="{desc_safe}">
-<meta name="twitter:image" content="https://{domain}/og-images/og-pov-default.png">
+<meta name="twitter:image" content="{og_image_url}">
 
 <link rel="icon" href="{_FAVICON}">
 
@@ -311,15 +331,6 @@ h1.pov-title {
 <script type="application/ld+json">
 {ld_article}
 </script>
-<script>
-{_POSTHOG}
-</script>
-<script>
-  document.addEventListener('click', function(e) {{
-    var link = e.target.closest('a[href*="onecal.io"]');
-    if (link) posthog.capture('booking_cta_clicked', {{ page: window.location.pathname }});
-  }});
-</script>
 </head>
 <body>
 
@@ -333,7 +344,7 @@ h1.pov-title {
 
 <!-- Nav -->
 <div class="nav-bar">
-  <a href="https://{domain}" class="nav-logo">Demand AI<em>.</em>Studio</a>
+  <a href="https://{domain}" class="nav-logo">{site_name_safe}</a>
   <a href="/pov" class="nav-back">&larr; All takes</a>
 </div>
 
@@ -352,23 +363,15 @@ h1.pov-title {
 <article class="pov-body">
 {body_html}
 </article>
-
-<!-- Services CTA -->
-<section class="services-cta">
-  <div class="services-cta-card">
-    <h3>Want to build this capability for your team?</h3>
-    <p>If you want automations like this running inside your GTM stack — not just a template but a working system — book a call and we'll scope it together.</p>
-    <a href="https://app.onecal.io/b/christen-george/demand-ai-studio" class="services-cta-link" target="_blank">Book a Discovery Call</a>
-  </div>
-</section>
+{cta_html}
 
 <!-- Footer -->
 <footer class="footer">
   <div class="footer-left">
-    &copy; 2026 <a href="https://{domain}">Demand AI Studio</a>
+    &copy; 2026 <a href="https://{domain}">{site_name_safe}</a>
   </div>
   <div>
-    <a href="https://{domain}">demandai.studio</a>
+    <a href="https://{domain}">{_html_lib.escape(domain)}</a>
   </div>
 </footer>
 
@@ -412,30 +415,23 @@ def format_markdown(draft_data: dict, config: dict) -> tuple:
 
 def _build_content(draft_data: dict) -> str:
     meta = draft_data["metadata"]
+    source_url = meta.get("source_url", "")
+    source_host = urlparse(source_url).netloc.lstrip("www.") if source_url else ""
 
-    safe_title = meta["title"].replace('"', '\\"')
-    safe_description = meta["description"].replace('"', '\\"')
-    safe_source_title = meta["title"].replace('"', '\\"')
+    fm = {
+        "title": meta["title"],
+        "description": meta.get("description", ""),
+        "sourceUrl": source_url,
+        "sourceTitle": source_host or source_url,
+        "publishDate": meta.get("publish_date", ""),
+        "theme": meta.get("theme", ""),
+        "tags": meta.get("tags", []),
+        "featured": False,
+        "linkedInDraft": draft_data.get("linkedin_draft", ""),
+    }
 
-    linkedin_draft = draft_data.get("linkedin_draft", "")
-    linkedin_escaped = linkedin_draft.replace('"', '\\"').replace("\n", "\\n") if linkedin_draft else ""
-
-    tags_str = ", ".join(f'"{t}"' for t in meta.get("tags", []))
-
-    return f'''---
-title: "{safe_title}"
-description: "{safe_description}"
-sourceUrl: "{meta['source_url']}"
-sourceTitle: "{safe_source_title}"
-publishDate: {meta.get('publish_date', '')}
-theme: "{meta['theme']}"
-tags: [{tags_str}]
-featured: false
-linkedInDraft: "{linkedin_escaped}"
----
-
-{draft_data['site_draft']}
-'''
+    fm_str = yaml.dump(fm, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return f"---\n{fm_str}---\n\n{draft_data['site_draft']}\n"
 
 
 # ─── Formatter registry ───────────────────────────────────────────────────────

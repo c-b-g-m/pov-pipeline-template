@@ -104,6 +104,8 @@ def discover_rss(config: dict) -> List[dict]:
     for feed_cfg in feeds:
         feed_url = feed_cfg.get("url", "")
         needs_filter = feed_cfg.get("needs_keyword_filter", False)
+        priority = feed_cfg.get("priority", 1)       # lower = ranked first
+        max_per_feed = feed_cfg.get("max_per_feed")  # optional per-feed cap
 
         if not feed_url:
             continue
@@ -115,6 +117,7 @@ def discover_rss(config: dict) -> List[dict]:
             log.warning("Failed to parse %s: %s", feed_url, e)
             continue
 
+        feed_candidates = []
         for entry in feed.entries:
             title = entry.get("title", "")
             link = entry.get("link", "")
@@ -133,17 +136,20 @@ def discover_rss(config: dict) -> List[dict]:
             if _is_blocked(url, blocked) or _is_index_url(url):
                 continue
 
-            candidates.append({
+            feed_candidates.append({
                 "url": url,
                 "title": title.strip(),
                 "source": urlparse(feed_url).netloc,
                 "theme": theme,
                 "summary": summary[:500] if summary else "",
+                "priority": priority,
             })
 
-        log.info("  Found %d candidates from %s",
-                 len([c for c in candidates if urlparse(feed_url).netloc in c["source"]]),
-                 feed_url)
+        if max_per_feed is not None:
+            feed_candidates = feed_candidates[:max_per_feed]
+
+        candidates.extend(feed_candidates)
+        log.info("  Found %d candidates from %s", len(feed_candidates), feed_url)
 
     return candidates
 
@@ -231,9 +237,9 @@ def discover(config: dict, brave_api_key: str = "") -> List[dict]:
     log.info("Discovery: %d total, %d unique, %d after dedup with history",
              len(all_candidates), len(seen), len(unique))
 
-    # Rank: articles with a detected theme score higher
-    themed = [c for c in unique if c.get("theme")]
-    unthemed = [c for c in unique if not c.get("theme")]
+    # Rank: theme-matched first, then by feed priority (lower value = higher priority)
+    themed = sorted([c for c in unique if c.get("theme")], key=lambda c: c.get("priority", 1))
+    unthemed = sorted([c for c in unique if not c.get("theme")], key=lambda c: c.get("priority", 1))
     ranked = themed + unthemed
 
     result = ranked[:max_candidates]

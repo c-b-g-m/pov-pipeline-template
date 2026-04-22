@@ -1,33 +1,5 @@
 # Knowledge Base — pov-pipeline-template
 
-### Inline SVG favicon via data URI — no external file needed
-**Date:** 2026-04-20
-**Type:** pattern
-**Context:** Adding the aurora gradient bolt as a browser tab favicon to the deck HTML.
-**Detail:** Use `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,...">` with a percent-encoded SVG string. Keeps the deck self-contained — no favicon.svg file to manage. linearGradient works fine inside the data URI as long as the `id` reference (`url(#g)`) matches the inline `<defs>` block. Special chars to encode: `#` → `%23`, `<` → `%3C`, `>` → `%3E`, `'` stays as-is inside double-quoted href.
-
----
-
-### `background-clip: text` clips descenders — fix with padding-bottom
-**Date:** 2026-04-20
-**Type:** gotcha
-**Context:** Applying aurora gradient to presenter name in the deck closing slide; "g" in "George-McFerrin" was visually cut off.
-**Detail:** CSS `background-clip: text` (and `-webkit-background-clip: text`) clips the painted region to the text bounding box, which excludes descenders. Fix: add `padding-bottom: 0.1em–0.15em` to the element. This expands the clipping box to include the descender. Required on any gradient text element that contains descending characters (g, j, p, q, y).
-
-### Clearing the chrome `.mark` on a specific slide
-**Date:** 2026-04-20
-**Type:** pattern
-**Context:** The deck chrome bar shows the brand mark (bolt + "dAIs") on every slide. Slide 13 already had the full wordmark in the left panel, making the chrome mark redundant.
-**Detail:** The `.chrome .mark` block is rendered per-slide. To suppress it on a specific slide, replace the inner content of that slide's `.mark` div with nothing: `<div class="mark"></div>`. Do not try to hide it via z-index or visibility — the chrome sits above slide content by design.
-
-### `docs/deck/` is gitignored — personal assets stay local
-**Date:** 2026-04-20
-**Type:** decision
-**Context:** The Pavilion GTM presentation deck contains a headshot, personal URLs, and brand assets. The repo is public.
-**Detail:** `docs/deck/` is in `.gitignore`. Never commit this directory. If the deck ever needs to be shared, do it as a file export — not via the public repo.
-
----
-
 ### `git filter-repo` removes origin remote automatically
 **Date:** 2026-04-20
 **Type:** gotcha
@@ -56,7 +28,7 @@
 **Date:** 2026-04-15
 **Type:** decision / gotcha
 **Context:** Buffer was sending the original Claude-generated LinkedIn draft instead of the edited version approved in the PR.
-**Detail:** The `buffer-on-merge.yml` action was reading `linkedInDraft` from the merged file's YAML frontmatter — the original Claude draft, never touched by PR edits. Users edit the Social Draft block in the PR description; that's the source of truth. Fixed by adding a "Get merged PR body" step (`gh pr list --search <sha>`) and parsing the `### Social Draft` code block from the PR body via regex. File frontmatter is no longer read; pyyaml dependency removed. The same fix was applied to both `cazimi-marketing-com` (live) and `pov-pipeline-template` (example).
+**Detail:** The `buffer-on-merge.yml` action was reading `linkedInDraft` from the merged file's YAML frontmatter — the original Claude draft, never touched by PR edits. Users edit the Social Draft block in the PR description; that's the source of truth. Fixed by adding a "Get merged PR body" step (`gh pr list --search <sha>`) and parsing the `### Social Draft` code block from the PR body via regex. File frontmatter is no longer read; pyyaml dependency removed.
 
 ## 2026-04-09: Buffer flow is post-merge, not inline
 - **Decision:** Buffer posting was removed from the pipeline and moved to a post-merge GitHub Action on the site repo.
@@ -91,7 +63,7 @@
 ### `npm run generate-og` regenerates ALL OG images, not just new ones
 **Date:** 2026-04-10
 **Type:** gotcha
-**Context:** Ran `npm run generate-og` in `demand-ai-studio` to create the new POV Pipeline card.
+**Context:** Ran `npm run generate-og` to create the new POV Pipeline card in a production site repo.
 **Detail:** The Puppeteer script auto-discovers every `index.html` file and regenerates every OG image. Even when visual output is identical, Puppeteer produces ~260 bytes of pixel-level noise per file. When adding a new freebie, expect ~9 other OG files to show up dirty — stage only the new one (`git add og-images/og-new-slug.png`) and `git checkout --` the rest.
 
 ### Trust the model over constraining it for AI-savvy forking audiences
@@ -147,3 +119,43 @@
 **Type:** decision
 **Context:** Choosing positioning language for a non-technical GTM leader audience in a community presentation.
 **Detail:** "Opinion engine" lands better than "content generator" with GTM leaders because they've already seen generic AI content. The distinction emphasizes that the pipeline reads your voice guidelines and produces opinionated takes — not templates. Pair it with the editorial gate argument: "nothing publishes without your sign-off."
+
+---
+
+### Credentials in git history require rotation, not just code removal
+**Date:** 2026-04-21
+**Type:** gotcha
+**Context:** Removing a hardcoded PostHog key from `formatters.py` that had been in the public template repo since the HTML formatter was written.
+**Detail:** Removing a key from code and pushing a new commit doesn't scrub it from git history — every prior commit still exposes it. Required `git filter-repo --replace-text` to rewrite all 19 commits, then a force-push. Also requires rotating the key itself since public repo history should be assumed seen.
+
+---
+
+### `git filter-repo` "already_ran" file blocks re-runs — delete it
+**Date:** 2026-04-21
+**Type:** gotcha
+**Context:** Running `git filter-repo` a second time on this repo (session logs scrubbed 2026-04-20; PostHog key scrubbed 2026-04-21).
+**Detail:** If filter-repo was previously run, `.git/filter-repo/already_ran` blocks subsequent runs with an interactive prompt that fails in non-TTY environments. Delete the file (`rm .git/filter-repo/already_ran`) before re-running. Safe to delete — it's just a guard file.
+
+---
+
+### Use yaml.dump() for YAML frontmatter, never string interpolation
+**Date:** 2026-04-21
+**Type:** pattern
+**Context:** Fixing the `_build_content()` formatter in `formatters.py` which manually escaped titles and descriptions with `replace('"', '\\"')`.
+**Detail:** Manual string escaping only handles double quotes — titles or descriptions with colons, backticks, or `#` silently produce malformed YAML that downstream MDX processors may reject or misparse. `yaml.dump(fm_dict, default_flow_style=False, allow_unicode=True, sort_keys=False)` handles all edge cases correctly. PyYAML is already a dependency.
+
+---
+
+### JSON-LD `keywords` must be an array, not a comma-delimited string
+**Date:** 2026-04-21
+**Type:** gotcha
+**Context:** Fixing the Schema.org structured data block in `format_html()`.
+**Detail:** Schema.org's `keywords` field expects an array. Using `", ".join(tags)` produces a string that structured data parsers iterate character-by-character. Fix: pass the `tags` list directly to `json.dumps()`.
+
+---
+
+### HTML formatter in a public template must be 100% config-driven — no hardcoded identity
+**Date:** 2026-04-21
+**Type:** decision
+**Context:** The `format_html()` function was built for an early implementation and never generalized before open-sourcing.
+**Detail:** Every identity string — site name, author name, OG tags, nav logo, footer, CTA copy and URL, analytics keys — must come from config or be absent. Any hardcoded value makes the formatter unusable for any other user. The CTA section pattern (omit `site.cta` from config entirely to suppress the HTML block) is the right model for optional sections.

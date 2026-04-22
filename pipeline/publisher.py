@@ -144,7 +144,7 @@ def create_pr(draft: dict, config: dict, repo_path: str, dry_run: bool = False) 
 
 ---
 
-### LinkedIn Draft
+### Social Draft
 
 ```
 {draft.get('linkedin_draft', 'No social draft generated.')}

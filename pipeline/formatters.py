@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import yaml
+from datetime import datetime
 from typing import Callable
 from urllib.parse import urlparse
 
@@ -368,7 +369,7 @@ h1.pov-title {
 <!-- Footer -->
 <footer class="footer">
   <div class="footer-left">
-    &copy; 2026 <a href="https://{domain}">{site_name_safe}</a>
+    &copy; {datetime.now().year} <a href="https://{domain}">{site_name_safe}</a>
   </div>
   <div>
     <a href="https://{domain}">{_html_lib.escape(domain)}</a>

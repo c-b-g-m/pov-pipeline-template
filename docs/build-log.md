@@ -1,30 +1,22 @@
 # Build Log — pov-pipeline-template
 
-## 2026-04-20: GTM Deck — Favicon
+## 2026-04-21: Template Bug Fixes (public template hardening)
 
 **What was built:**
-- Added aurora gradient bolt as favicon to `docs/deck/POV Pipeline Deck.html` via inline SVG data URI — no external file needed.
-
-**What broke:** Nothing.
-
-**Tech debt:** None introduced.
-
----
-
-## 2026-04-20: GTM Deck — Closing Slide
-
-**What was built:**
-- Slide 13 (closing) finalized and merged into `docs/deck/POV Pipeline Deck.html`
-- Three layout options prototyped as standalone HTML files; Option B (left-panel split) selected
-- Final design: circular headshot, aurora gradient on presenter name, Demand AI.Studio wordmark one-line, "Keep going" eyebrow, two CTA cards with URL-level arrows
-- `docs/deck/` added to `.gitignore` — personal assets (headshot, URLs) must not reach the public repo
-- Three draft option files deleted after merge
+- Audited template against a private fork and production integration to find bugs other users would hit
+- `formatters.py` fully rewritten: PostHog removed entirely, `format_html()` made config-driven via `site.name` / `author.name` / `site.cta` / `site.og_image`, JSON-LD keywords fixed to array, YAML frontmatter switched to `yaml.dump()`, `sourceTitle` fixed to show source domain
+- `publisher.py`: branch collision handling, commit/push failure cleanup
+- `discovery.py`: `priority` and `max_per_feed` per-feed config + priority-aware ranking
+- `config.example.yaml`: `site.name`, `og_image`, `cta` block, HTML output format docs, feed priority examples, Reddit blocking note
+- All 19 commits in git history rewritten to scrub hardcoded PostHog key via `git filter-repo --replace-text`
 
 **What broke:**
-- `background-clip: text` clipped the descender on "George-McFerrin" — fixed with `padding-bottom: 0.12em`
-- Chrome `.mark` block persists on every slide — cleared `.mark` content on slide 13's chrome div to suppress the redundant dAIs mark
+- Nothing in current functionality — all changes are backwards-compatible for existing users except `format_html()` now requires `site.name` in config (previously defaulted to a hardcoded value)
 
-**Tech debt:** None introduced.
+**Tech debt:**
+- `sourceTitle` now shows source domain (e.g., `techcrunch.com`) but not the publication's display name — would require discovery module to capture feed/publication titles
+- `og-pov-default.png` default path in `format_html()` has no validation; pipeline won't warn if the file is missing in the site repo
+- PostHog key should be rotated — it was in a public repo before today's history rewrite
 
 ---
 
@@ -46,22 +38,6 @@
 
 ---
 
-## 2026-04-18: GTM community deck brief + Claude Design prompt
-
-**Context:** Chris needed presentation materials for a live GTM community session on the POV Pipeline — audience is go-to-market leaders, not developers.
-
-**What was built:**
-- `docs/sessions/pov-pipeline-gtm-deck-brief.md` — 12-slide content brief with headlines, bullets, and speaker notes. Covers: what the workflow does, tools it uses, how to set it up.
-- `docs/sessions/pov-pipeline-claude-design-prompt.md` — self-contained Claude Design prompt Chris can paste to generate the visual deck.
-
-**Style reference used:** `dais-pipeline/teaching-ai-fluency/` (outcome contract format, facilitator session structure).
-
-**What broke:** Nothing. No code changes this session.
-
-**Tech debt:** None introduced.
-
----
-
 ## 2026-04-15: Fix Buffer action to read social draft from merged PR body
 
 **Context:** Buffer drafts were showing the original Claude-generated LinkedIn draft, not the version edited and approved in the GitHub PR.
@@ -69,23 +45,21 @@
 **Root cause:** `buffer-on-merge.yml` was reading `linkedInDraft` from the merged file's YAML frontmatter — the original AI draft. Edits made to the Social Draft block in the PR description were never picked up.
 
 **What was built:**
-- Rewrote `buffer-on-merge.yml` in `cazimi-marketing-com` to fetch the merged PR body via `gh pr list --search <sha>` (with recency fallback), parse the `### Social Draft` code block, and send that to Buffer. Removed pyyaml dependency.
-- Applied the same fix to `buffer-on-merge.example.yml` in `pov-pipeline-template`.
+- Rewrote `buffer-on-merge.yml` to fetch the merged PR body via `gh pr list --search <sha>` (with recency fallback), parse the `### Social Draft` code block, and send that to Buffer. Removed pyyaml dependency.
+- Applied the same fix to `buffer-on-merge.example.yml`.
 - Added `--diff-filter=A` to the git diff in the "Find merged POV files" step (only newly added files, not modified ones).
 
-**What broke:** Nothing. Push to `cazimi-marketing-com` main was blocked by branch protection — required a PR (`c-b-g-m/cazimi-marketing-com#33`), merged same session.
+**What broke:** Nothing.
 
 **Tech debt:** None introduced.
 
-**Commits:**
-- `cazimi-marketing-com`: `7946c01` (merged via PR #33 → `9b7b2f9`)
-- `pov-pipeline-template`: `b83a66c`
+**Commits:** `b83a66c`
 
 ---
 
-## 2026-04-10: --validate pre-flight + zero-context README polish (Kissinger pitch session)
+## 2026-04-10: --validate pre-flight + zero-context README polish
 
-**Context:** Session was about pitching this repo as a freebie to a fractional-CMO prospect (Kissinger Group). Before pitching, audited the repo for coherence from a zero-context reader's perspective, then hardened the biggest onboarding traps.
+**Context:** Audited the repo for coherence from a zero-context reader's perspective, then hardened the biggest onboarding traps.
 
 **What was built:**
 - **`--validate` pre-flight subcommand** in `pipeline/main.py`. New `validate(config_path) -> list[str]` helper (unit-testable, no sys.exit) + `_run_validate()` CLI wrapper + `--validate` argparse flag that short-circuits before any API calls. Checks: config loads, ANTHROPIC_API_KEY set, voice-guidelines.md exists, SITE_REPO_PATH set and exists, site.content_path exists inside SITE_REPO_PATH, `gh` CLI on PATH and authenticated (via `subprocess.run(["gh", "auth", "status"], timeout=10)`).

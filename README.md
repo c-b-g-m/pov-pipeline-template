@@ -60,13 +60,13 @@ Copy the example files and fill in your own values:
 ```bash
 cp config.example.yaml config.yaml
 cp voice-guidelines.example.md voice-guidelines.md
-cp env.example .env
+cp env.example .env.local
 ```
 
 Then edit:
 - **`config.yaml`** — your identity, RSS feeds, themes, keywords, publishing target
 - **`voice-guidelines.md`** — your editorial voice, tone, structure, and constraints
-- **`.env`** — your API keys and site repo path
+- **`.env.local`** — your API keys and site repo path
 
 ### 4. Pre-flight check
 
@@ -100,7 +100,7 @@ All pipeline behavior is driven by this file. See `config.example.yaml` for a co
 | Section | What you provide |
 |---|---|
 | `author` | Your name, role, and specialization |
-| `site` | Your domain, content path in your site repo (must already exist), URL pattern |
+| `site` | Your domain, content path in your site repo (must already exist), optional OG image path |
 | `audience` | *Optional.* Who you're writing FOR — description, what they already know, what they care about |
 | `first_principles` | *Optional.* Foundational beliefs the model reasons FROM, with optional links to explanatory posts |
 | `discovery` | RSS feeds, Brave search queries, industry keywords, blocked domains |
@@ -108,6 +108,10 @@ All pipeline behavior is driven by this file. See `config.example.yaml` for a co
 | `drafting` | Claude model, output format (mdx/markdown), content section structure |
 | `publishing` | Target GitHub repo, base branch, branch prefix |
 | `pipeline` | Timezone, rate limits, log file |
+
+### `site.og_image` — OG image for HTML output
+
+If you use `output_format: html`, each article gets an OG `<meta>` tag pointing to this path. The default is `/og-images/og-pov-default.png` — a path relative to your site root. **You must supply this file in your site repo.** The pipeline won't warn you if it's missing; broken OG images are silent. Either set `og_image` in your config to a path that exists, or leave the field out and create the default file in your site repo.
 
 ### `audience` — who you're writing FOR
 
